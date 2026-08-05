@@ -241,6 +241,10 @@ func runBackfillRPE() error {
 			fmt.Printf("Strava rate limit reached after %d updates; run backfill-rpe again in 15 minutes to continue.\n", done)
 			return nil
 		}
+		if errors.Is(err, strava.ErrNotFound) {
+			fmt.Printf("Skipping activity %d: deleted on Strava\n", p.StravaID)
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("activity %d: %w", p.StravaID, err)
 		}
