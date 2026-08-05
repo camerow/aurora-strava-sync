@@ -171,9 +171,9 @@ func gradeRange(s session.Session) (lo, hi int) {
 func title(rpe int, s session.Session) string {
 	_, hi := gradeRange(s)
 	if hi < 0 {
-		return fmt.Sprintf("%s · %d climbs", adjective(rpe), len(s.Climbs))
+		return fmt.Sprintf("%s · %s", adjective(rpe), plural(len(s.Climbs), "climb"))
 	}
-	return fmt.Sprintf("%s · %d climbs, top V%d", adjective(rpe), len(s.Climbs), hi)
+	return fmt.Sprintf("%s · %s, top V%d", adjective(rpe), plural(len(s.Climbs), "climb"), hi)
 }
 
 func plural(n int, word string) string {

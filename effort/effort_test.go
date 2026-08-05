@@ -117,3 +117,10 @@ func TestSummaryLine(t *testing.T) {
 		}
 	}
 }
+
+func TestTitleSingularClimb(t *testing.T) {
+	res := Score(mkSession(10, 18, 1, 4), nil, DefaultConfig())
+	if !strings.Contains(res.Title, "1 climb,") || strings.Contains(res.Title, "1 climbs") {
+		t.Fatalf("title = %q, want singular climb", res.Title)
+	}
+}
