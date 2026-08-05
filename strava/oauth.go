@@ -3,6 +3,8 @@ package strava
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -66,9 +68,19 @@ func SaveTokens(t Tokens) error {
 
 // Connect runs the authorization-code flow on localhost and returns tokens.
 func Connect(cfg config.StravaConfig, openURL func(string) error) (Tokens, error) {
+	stateBytes := make([]byte, 16)
+	if _, err := rand.Read(stateBytes); err != nil {
+		return Tokens{}, err
+	}
+	state := hex.EncodeToString(stateBytes)
+
 	codeCh := make(chan string, 1)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != state {
+			http.Error(w, "invalid state", http.StatusBadRequest)
+			return
+		}
 		code := r.URL.Query().Get("code")
 		if code == "" {
 			http.Error(w, "missing code", http.StatusBadRequest)
@@ -90,6 +102,7 @@ func Connect(cfg config.StravaConfig, openURL func(string) error) (Tokens, error
 		"redirect_uri":  {"http://" + callbackAddr + "/callback"},
 		"response_type": {"code"},
 		"scope":         {"activity:write"},
+		"state":         {state},
 	}.Encode()
 	if err := openURL(authURL); err != nil {
 		return Tokens{}, err
