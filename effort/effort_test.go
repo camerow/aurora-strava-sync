@@ -124,3 +124,32 @@ func TestTitleSingularClimb(t *testing.T) {
 		t.Fatalf("title = %q, want singular climb", res.Title)
 	}
 }
+
+func TestVolumeSessionTitles(t *testing.T) {
+	// History establishes rolling max V6 and a modest median.
+	var history []session.Session
+	for day := 1; day <= 6; day++ {
+		history = append(history, mkSession(day, 18, 8, 6))
+	}
+	// Big low-grade session: 40 climbs at V3 (3 below max) - volume-driven.
+	volume := Score(mkSession(10, 18, 40, 3), history, DefaultConfig())
+	if volume.RPE < 8 {
+		t.Fatalf("volume session RPE = %d, want >= 8", volume.RPE)
+	}
+	if !strings.Contains(volume.Title, "volume board session") {
+		t.Fatalf("volume session title = %q, want volume wording", volume.Title)
+	}
+	if volume.RPE == 10 && !strings.Contains(volume.Title, "Max volume board session") {
+		t.Fatalf("RPE 10 volume title = %q", volume.Title)
+	}
+	// Big session AT max grade stays on the effort ladder.
+	limit := Score(mkSession(10, 18, 40, 6), history, DefaultConfig())
+	if strings.Contains(limit.Title, "volume board session") {
+		t.Fatalf("limit session mislabeled as volume: %q", limit.Title)
+	}
+	// One grade below max is still limit-style (needs 2+ below for volume).
+	near := Score(mkSession(10, 18, 40, 5), history, DefaultConfig())
+	if strings.Contains(near.Title, "volume board session") {
+		t.Fatalf("near-max session mislabeled as volume: %q", near.Title)
+	}
+}

@@ -120,7 +120,21 @@ func Score(target session.Session, history []session.Session, cfg Config) Result
 		rpe = 10
 	}
 
-	return Result{RPE: rpe, Title: title(rpe, target), Summary: summary(rpe, target)}
+	return Result{
+		RPE:     rpe,
+		Title:   title(rpe, target, volumeDriven(target, rollingMax)),
+		Summary: summary(rpe, target),
+	}
+}
+
+// volumeDriven reports whether a session's effort comes from volume rather
+// than grade intensity: its hardest climb sits well below the climber's
+// rolling max (2+ grades), so a high score means lots of climbing with short
+// rests, not limit attempts. Unclassifiable without history (rollingMax 0)
+// or without known grades.
+func volumeDriven(s session.Session, rollingMax int) bool {
+	_, hi := gradeRange(s)
+	return rollingMax > 0 && hi >= 0 && hi <= rollingMax-2
 }
 
 func median(xs []float64) float64 {
@@ -168,12 +182,22 @@ func gradeRange(s session.Session) (lo, hi int) {
 	return lo, hi
 }
 
-func title(rpe int, s session.Session) string {
+func title(rpe int, s session.Session, volume bool) string {
+	adj := adjective(rpe)
+	// High-scoring sessions well below the climber's max are volume work,
+	// not limit attempts; name them accordingly.
+	if volume && rpe >= 8 {
+		if rpe == 10 {
+			adj = "Max volume board session"
+		} else {
+			adj = "High volume board session"
+		}
+	}
 	_, hi := gradeRange(s)
 	if hi < 0 {
-		return fmt.Sprintf("%s · %s", adjective(rpe), plural(len(s.Climbs), "climb"))
+		return fmt.Sprintf("%s · %s", adj, plural(len(s.Climbs), "climb"))
 	}
-	return fmt.Sprintf("%s · %s, top V%d", adjective(rpe), plural(len(s.Climbs), "climb"), hi)
+	return fmt.Sprintf("%s · %s, top V%d", adj, plural(len(s.Climbs), "climb"), hi)
 }
 
 func plural(n int, word string) string {

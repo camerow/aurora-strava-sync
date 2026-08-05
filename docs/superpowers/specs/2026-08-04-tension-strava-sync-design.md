@@ -83,6 +83,8 @@ Scoring:
   Strictly above rather than at-or-above: an at-or-above rule would inflate every session touching the user's regular max and break the median-lands-at-6 calibration anchor.
 
 Title mapping: 1-3 "Easy board spin", 4-5 "Casual board session", 6-7 "Solid board session", 8-9 "Hard board session", 10 "Max effort board session", suffixed with facts: "Hard board session · 18 climbs, top V7".
+Volume exception (per Will's live-test feedback): when a high-scoring session's top grade sits 2+ V-grades below the rolling max, the effort came from volume rather than limit attempts, so RPE 8-9 titles become "High volume board session" and RPE 10 "Max volume board session".
+"Max effort" is reserved for sessions at or near limit grades.
 
 All thresholds (point curve, bid weight, gap threshold, density bands, buffers) live in one config struct with defaults.
 
