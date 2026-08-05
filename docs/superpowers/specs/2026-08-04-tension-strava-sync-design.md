@@ -88,6 +88,8 @@ All thresholds (point curve, bid weight, gap threshold, density bands, buffers) 
 ## Strava publisher
 
 Auth: user creates a Strava API application once; client ID + secret in config.
+For local use the app's Authorization Callback Domain is set to `localhost` (Strava supports this for CLI tools) and Website can be any URL, e.g. the GitHub repo.
+Strava apps start with a 1-athlete connection limit; a quota increase request to Strava is needed before other users can connect (hosted-service concern only).
 `connect strava` runs the authorization-code flow via a localhost listener (scope `activity:write`), stores access + refresh tokens, auto-refreshes on expiry.
 The hosted version uses the same flow with a real callback domain.
 
