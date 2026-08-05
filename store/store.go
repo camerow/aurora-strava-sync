@@ -19,6 +19,10 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000;`); err != nil {
+		db.Close()
+		return nil, err
+	}
 	schema := `
 	CREATE TABLE IF NOT EXISTS sessions (
 		fingerprint TEXT PRIMARY KEY,

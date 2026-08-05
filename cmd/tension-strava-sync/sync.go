@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"tension-strava-sync/aurora"
@@ -42,6 +43,17 @@ func runPipeline(args []string, post bool) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
+
+	lockFile, err := os.OpenFile(filepath.Join(dir, "run.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer lockFile.Close()
+	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return fmt.Errorf("another sync is already running")
+	}
+	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
+
 	st, err := store.Open(filepath.Join(dir, "state.db"))
 	if err != nil {
 		return err
@@ -84,7 +96,8 @@ func runPipeline(args []string, post bool) error {
 		selected = append(selected, scored{
 			sess:   s,
 			result: effort.Score(s, history, effort.DefaultConfig()),
-			fp:     store.Fingerprint(auroraSess.UserID, s.Start),
+			// fingerprints use the first climb's raw time so tuning session buffers never changes identity
+			fp: store.Fingerprint(auroraSess.UserID, s.Climbs[0].Time),
 		})
 	}
 
@@ -179,7 +192,7 @@ func resolveCutoff(all bool, since string, st *store.Store, sessions []session.S
 		return t, nil
 	}
 	for _, s := range sessions {
-		if posted, err := st.IsPosted(store.Fingerprint(userID, s.Start)); err != nil {
+		if posted, err := st.IsPosted(store.Fingerprint(userID, s.Climbs[0].Time)); err != nil {
 			return time.Time{}, err
 		} else if posted {
 			return time.Time{}, nil
