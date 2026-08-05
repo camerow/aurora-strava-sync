@@ -204,6 +204,53 @@ func toClimbs(ascents []aurora.Ascent, bids []aurora.Bid, st *store.Store) ([]se
 	return out, nil
 }
 
+// runBackfillRPE patches perceived exertion onto every already-posted
+// activity, for activities created before RPE patching existed (or after a
+// post-create patch failed).
+func runBackfillRPE() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	dir, err := config.Dir()
+	if err != nil {
+		return err
+	}
+	st, err := store.Open(filepath.Join(dir, "state.db"))
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	posted, err := st.PostedSessions()
+	if err != nil {
+		return err
+	}
+	if len(posted) == 0 {
+		fmt.Println("No posted activities recorded; nothing to backfill.")
+		return nil
+	}
+	tokens, err := strava.LoadTokens()
+	if err != nil {
+		return err
+	}
+	client := strava.NewClient(cfg.Strava, tokens)
+	done := 0
+	for _, p := range posted {
+		err := client.SetPerceivedExertion(p.StravaID, p.RPE)
+		if errors.Is(err, strava.ErrRateLimited) {
+			fmt.Printf("Strava rate limit reached after %d updates; run backfill-rpe again in 15 minutes to continue.\n", done)
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("activity %d: %w", p.StravaID, err)
+		}
+		done++
+		fmt.Printf("Set RPE %d on activity %d\n", p.RPE, p.StravaID)
+	}
+	fmt.Printf("Done. %d activities updated.\n", done)
+	return nil
+}
+
 // resolveCutoff decides which sessions are in scope. --all means everything;
 // --since means from that date. With neither, a store that has never posted
 // anything limits scope to today onwards so a fresh install does not flood
@@ -278,6 +325,12 @@ func publish(cfg config.Config, st *store.Store, selected []scored) error {
 		}
 		if err := st.MarkPosted(s.fp, id, s.result.RPE); err != nil {
 			return err
+		}
+		// Create ignores perceived_exertion; patch it in after the fact.
+		// Best effort: a failure here leaves a valid activity, and
+		// backfill-rpe can repair it later.
+		if err := client.SetPerceivedExertion(id, s.result.RPE); err != nil {
+			fmt.Printf("warning: could not set perceived exertion on activity %d: %v\n", id, err)
 		}
 		posted++
 		fmt.Printf("Posted: %s (activity %d)\n", s.result.Title, id)

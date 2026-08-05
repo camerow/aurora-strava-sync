@@ -27,6 +27,8 @@ func main() {
 		err = runPipeline(os.Args[2:], true)
 	case "install-schedule":
 		err = runInstallSchedule()
+	case "backfill-rpe":
+		err = runBackfillRPE()
 	default:
 		usage()
 	}
@@ -44,7 +46,8 @@ commands:
   connect strava     authorize the Strava application
   preview [--all|--since YYYY-MM-DD]   dry-run: show sessions and scores
   sync    [--all|--since YYYY-MM-DD]   post new sessions to Strava
-  install-schedule   run sync every 4 hours via launchd`)
+  install-schedule   run sync every 4 hours via launchd
+  backfill-rpe       set perceived exertion on already-posted activities`)
 	os.Exit(2)
 }
 

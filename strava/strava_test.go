@@ -90,3 +90,23 @@ func TestEnsureFreshRefreshesExpiredToken(t *testing.T) {
 		t.Fatalf("refreshed tokens not persisted: %+v %v", saved, err)
 	}
 }
+
+func TestSetPerceivedExertion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/activities/1234567" || r.Method != "PUT" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		r.ParseForm()
+		if r.Form.Get("perceived_exertion") != "7" || r.Form.Get("prefer_perceived_exertion") != "true" {
+			t.Errorf("bad form: %v", r.Form)
+		}
+		w.Write([]byte(`{"id": 1234567}`))
+	}))
+	defer srv.Close()
+	c := NewClientWithBaseURL(config.StravaConfig{}, Tokens{
+		AccessToken: "at1", ExpiresAt: time.Now().Add(time.Hour).Unix(),
+	}, srv.URL, srv.URL)
+	if err := c.SetPerceivedExertion(1234567, 7); err != nil {
+		t.Fatal(err)
+	}
+}

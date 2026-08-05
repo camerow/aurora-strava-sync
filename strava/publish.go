@@ -60,6 +60,39 @@ type Activity struct {
 	PerceivedExertion int
 }
 
+// SetPerceivedExertion patches an existing activity's RPE. Strava's create
+// endpoint ignores perceived_exertion; only the update endpoint honors it.
+// prefer_perceived_exertion makes Strava use it for relative effort.
+func (c *Client) SetPerceivedExertion(activityID int64, rpe int) error {
+	if err := c.EnsureFresh(); err != nil {
+		return err
+	}
+	form := url.Values{
+		"perceived_exertion":        {strconv.Itoa(rpe)},
+		"prefer_perceived_exertion": {"true"},
+	}
+	req, err := http.NewRequest("PUT",
+		fmt.Sprintf("%s/activities/%d", c.apiBase, activityID),
+		strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", "Bearer "+c.tokens.AccessToken)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return ErrRateLimited
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("set perceived exertion failed: HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
 func (c *Client) CreateActivity(a Activity) (int64, error) {
 	if err := c.EnsureFresh(); err != nil {
 		return 0, err

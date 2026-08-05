@@ -86,6 +86,30 @@ func (s *Store) PutClimbStats(stats []aurora.ClimbStat) error {
 	return tx.Commit()
 }
 
+// PostedSession is one row of the posted-activity log.
+type PostedSession struct {
+	Fingerprint string
+	StravaID    int64
+	RPE         int
+}
+
+func (s *Store) PostedSessions() ([]PostedSession, error) {
+	rows, err := s.db.Query(`SELECT fingerprint, strava_activity_id, rpe FROM sessions ORDER BY posted_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PostedSession
+	for rows.Next() {
+		var p PostedSession
+		if err := rows.Scan(&p.Fingerprint, &p.StravaID, &p.RPE); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) PutClimbNames(rows []aurora.ClimbRow) error {
 	tx, err := s.db.Begin()
 	if err != nil {
