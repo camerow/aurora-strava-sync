@@ -241,8 +241,12 @@ func printTable(selected []scored, st *store.Store) {
 		if posted {
 			status = "already posted"
 		}
-		fmt.Printf("%s  %3d climbs  RPE %2d  %-40s %s\n",
-			s.sess.Start.Format("2006-01-02 15:04"), len(s.sess.Climbs),
+		word := "climbs"
+		if len(s.sess.Climbs) == 1 {
+			word = "climb"
+		}
+		fmt.Printf("%s  %3d %-6s  RPE %2d  %-40s %s\n",
+			s.sess.Start.Format("2006-01-02 15:04"), len(s.sess.Climbs), word,
 			s.result.RPE, s.result.Title, status)
 	}
 }
