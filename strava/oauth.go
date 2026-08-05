@@ -101,8 +101,11 @@ func Connect(cfg config.StravaConfig, openURL func(string) error) (Tokens, error
 		"client_id":     {cfg.ClientID},
 		"redirect_uri":  {"http://" + callbackAddr + "/callback"},
 		"response_type": {"code"},
-		"scope":         {"activity:write"},
-		"state":         {state},
+		// activity:read_all is needed alongside write: Strava's update
+		// endpoint 404s on activities the token cannot read (private
+		// activities in particular), even with write scope.
+		"scope": {"activity:write,activity:read_all"},
+		"state": {state},
 	}.Encode()
 	if err := openURL(authURL); err != nil {
 		return Tokens{}, err
