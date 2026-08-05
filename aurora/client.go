@@ -49,7 +49,8 @@ func (c *Client) Login(username, password string) (Session, error) {
 	if resp.StatusCode == http.StatusUnprocessableEntity {
 		return Session{}, fmt.Errorf("invalid Tension credentials")
 	}
-	if resp.StatusCode != http.StatusOK {
+	// The live API returns 201 Created on successful login.
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return Session{}, fmt.Errorf("login failed: HTTP %d", resp.StatusCode)
 	}
 	var out struct {

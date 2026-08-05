@@ -31,6 +31,7 @@ func TestLogin(t *testing.T) {
 		if body["username"] != "will" || body["tou"] != "accepted" {
 			t.Errorf("bad login body: %v", body)
 		}
+		w.WriteHeader(http.StatusCreated) // live API returns 201 on login success
 		w.Write([]byte(`{"session": {"token": "tok123", "user_id": 42}}`))
 	}))
 	defer srv.Close()
