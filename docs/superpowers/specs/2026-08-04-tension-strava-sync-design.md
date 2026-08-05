@@ -79,7 +79,8 @@ Scoring:
 
 - Base = normalized load mapped through a curve where the user's median session lands at ~6.
 - Density nudges up to +1 (high) or -1 (casual pace).
-- Attempting at or above rolling max grade nudges up (projecting sessions feel maximal even at low volume).
+- Climbing strictly above the rolling max sent grade nudges up (breaking new ground feels maximal even at low volume).
+  Strictly above rather than at-or-above: an at-or-above rule would inflate every session touching the user's regular max and break the median-lands-at-6 calibration anchor.
 
 Title mapping: 1-3 "Easy board spin", 4-5 "Casual board session", 6-7 "Solid board session", 8-9 "Hard board session", 10 "Max effort board session", suffixed with facts: "Hard board session · 18 climbs, top V7".
 
