@@ -116,3 +116,7 @@ Every posted session is fingerprinted in a local SQLite database, so re-running 
 - This uses the Aurora boards' private API (the same one the mobile apps use), reverse-engineered by the [BoardLib](https://github.com/lemeryfertitta/BoardLib) community; it is unofficial and could break if Aurora changes the API.
 - New Strava API applications are limited to one connected athlete until Strava grants a quota increase, which is fine for personal use.
 - Board timestamps are wall-clock local time; the tool assumes you climb in the time zone your machine is set to.
+
+## License
+
+[MIT](LICENSE)
