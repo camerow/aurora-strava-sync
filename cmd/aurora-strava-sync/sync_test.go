@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"tension-strava-sync/aurora"
-	"tension-strava-sync/session"
-	"tension-strava-sync/store"
+	"aurora-strava-sync/aurora"
+	"aurora-strava-sync/session"
+	"aurora-strava-sync/store"
 )
 
 func openTestStore(t *testing.T) *store.Store {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"tension-strava-sync/config"
+	"aurora-strava-sync/config"
 )
 
 func TestCreateActivity(t *testing.T) {
@@ -64,7 +64,7 @@ func TestCreateActivityRateLimited(t *testing.T) {
 }
 
 func TestEnsureFreshRefreshesExpiredToken(t *testing.T) {
-	t.Setenv("TENSION_STRAVA_SYNC_DIR", t.TempDir())
+	t.Setenv("AURORA_STRAVA_SYNC_DIR", t.TempDir())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/token" {
 			t.Errorf("unexpected path %s", r.URL.Path)

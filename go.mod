@@ -1,4 +1,4 @@
-module tension-strava-sync
+module aurora-strava-sync
 
 go 1.26.5
 

@@ -10,8 +10,8 @@ import (
 )
 
 type Config struct {
-	Strava  StravaConfig  `toml:"strava"`
-	Tension TensionConfig `toml:"tension"`
+	Strava StravaConfig `toml:"strava"`
+	Aurora AuroraConfig `toml:"aurora"`
 }
 
 type StravaConfig struct {
@@ -19,20 +19,23 @@ type StravaConfig struct {
 	ClientSecret string `toml:"client_secret"`
 }
 
-type TensionConfig struct {
+type AuroraConfig struct {
+	// Board selects which Aurora Climbing board to sync; defaults to
+	// "tension" when empty. See aurora.HostBases for valid names.
+	Board    string `toml:"board"`
 	Username string `toml:"username"`
 }
 
-// Dir returns the state directory, honouring TENSION_STRAVA_SYNC_DIR for tests.
+// Dir returns the state directory, honouring AURORA_STRAVA_SYNC_DIR for tests.
 func Dir() (string, error) {
-	if d := os.Getenv("TENSION_STRAVA_SYNC_DIR"); d != "" {
+	if d := os.Getenv("AURORA_STRAVA_SYNC_DIR"); d != "" {
 		return d, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".tension-strava-sync"), nil
+	return filepath.Join(home, ".aurora-strava-sync"), nil
 }
 
 func Load() (Config, error) {

@@ -11,13 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"tension-strava-sync/aurora"
-	"tension-strava-sync/config"
-	"tension-strava-sync/effort"
-	"tension-strava-sync/grades"
-	"tension-strava-sync/session"
-	"tension-strava-sync/store"
-	"tension-strava-sync/strava"
+	"aurora-strava-sync/aurora"
+	"aurora-strava-sync/config"
+	"aurora-strava-sync/effort"
+	"aurora-strava-sync/grades"
+	"aurora-strava-sync/session"
+	"aurora-strava-sync/store"
+	"aurora-strava-sync/strava"
 )
 
 type scored struct {
@@ -62,15 +62,19 @@ func runPipeline(args []string, post bool) error {
 
 	auroraSess, ok := aurora.LoadToken()
 	if !ok {
-		return fmt.Errorf("not connected to Tension; run `tension-strava-sync connect tension`")
+		return fmt.Errorf("not connected to the board; run `aurora-strava-sync connect board`")
 	}
 
-	client := aurora.NewClient("")
+	baseURL, okBoard := aurora.BaseURLFor(cfg.Aurora.Board)
+	if !okBoard {
+		return fmt.Errorf("unknown board %q in config", cfg.Aurora.Board)
+	}
+	client := aurora.NewClient(baseURL)
 	ascents, bids, err := client.SyncUser(auroraSess.Token)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Fetched %d ascents, %d attempts from Tension.\n", len(ascents), len(bids))
+	fmt.Printf("Fetched %d ascents, %d attempts from the board.\n", len(ascents), len(bids))
 
 	if err := ensureClimbData(client, st, auroraSess.Token, ascents, bids); err != nil {
 		return err
@@ -202,57 +206,6 @@ func toClimbs(ascents []aurora.Ascent, bids []aurora.Bid, st *store.Store) ([]se
 		out = append(out, session.Climb{Time: ts, VGrade: v, Name: name(b.ClimbUUID), Kind: session.Attempt, Tries: b.BidCount})
 	}
 	return out, nil
-}
-
-// runBackfillRPE patches perceived exertion onto every already-posted
-// activity, for activities created before RPE patching existed (or after a
-// post-create patch failed).
-func runBackfillRPE() error {
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-	dir, err := config.Dir()
-	if err != nil {
-		return err
-	}
-	st, err := store.Open(filepath.Join(dir, "state.db"))
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	posted, err := st.PostedSessions()
-	if err != nil {
-		return err
-	}
-	if len(posted) == 0 {
-		fmt.Println("No posted activities recorded; nothing to backfill.")
-		return nil
-	}
-	tokens, err := strava.LoadTokens()
-	if err != nil {
-		return err
-	}
-	client := strava.NewClient(cfg.Strava, tokens)
-	done := 0
-	for _, p := range posted {
-		err := client.SetPerceivedExertion(p.StravaID, p.RPE)
-		if errors.Is(err, strava.ErrRateLimited) {
-			fmt.Printf("Strava rate limit reached after %d updates; run backfill-rpe again in 15 minutes to continue.\n", done)
-			return nil
-		}
-		if errors.Is(err, strava.ErrNotFound) {
-			fmt.Printf("Skipping activity %d: deleted on Strava\n", p.StravaID)
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("activity %d: %w", p.StravaID, err)
-		}
-		done++
-		fmt.Printf("Set RPE %d on activity %d\n", p.RPE, p.StravaID)
-	}
-	fmt.Printf("Done. %d activities updated.\n", done)
-	return nil
 }
 
 // resolveCutoff decides which sessions are in scope. --all means everything;

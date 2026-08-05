@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"tension-strava-sync/session"
+	"aurora-strava-sync/session"
 )
 
 func at(day, h, m int) time.Time {
@@ -112,7 +112,7 @@ func TestSummaryLine(t *testing.T) {
 	}, Start: at(1, 17, 50), End: at(1, 18, 25)}
 	res := Score(s, nil, DefaultConfig())
 	for _, want := range []string{
-		"2 sends", "1 attempt", "V4-V7", "avg V6.0", "synced from Tension Board", "RPE",
+		"2 sends", "1 attempt", "V4-V7", "avg V6.0", "synced by aurora-strava-sync", "RPE",
 		"✓ V4 Jug Life", "✓ V7 Crimp Reaper", "✗ V7 Crimp Reaper (3 tries)",
 	} {
 		if !strings.Contains(res.Summary, want) {

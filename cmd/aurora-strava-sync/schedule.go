@@ -11,7 +11,7 @@ const plistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Label</key><string>com.tension-strava-sync</string>
+	<key>Label</key><string>com.aurora-strava-sync</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>%s</string>
@@ -37,8 +37,8 @@ func runInstallSchedule() error {
 	if err != nil {
 		return err
 	}
-	logPath := filepath.Join(home, ".tension-strava-sync", "sync.log")
-	plistPath := filepath.Join(home, "Library", "LaunchAgents", "com.tension-strava-sync.plist")
+	logPath := filepath.Join(home, ".aurora-strava-sync", "sync.log")
+	plistPath := filepath.Join(home, "Library", "LaunchAgents", "com.aurora-strava-sync.plist")
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
 		return err
 	}

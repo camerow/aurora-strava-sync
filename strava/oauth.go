@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"tension-strava-sync/config"
+	"aurora-strava-sync/config"
 )
 
 const (
@@ -45,7 +45,7 @@ func LoadTokens() (Tokens, error) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Tokens{}, fmt.Errorf("no Strava tokens; run `tension-strava-sync connect strava` first: %w", err)
+		return Tokens{}, fmt.Errorf("no Strava tokens; run `aurora-strava-sync connect strava` first: %w", err)
 	}
 	var t Tokens
 	if err := json.Unmarshal(data, &t); err != nil {

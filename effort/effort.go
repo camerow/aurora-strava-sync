@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"tension-strava-sync/session"
+	"aurora-strava-sync/session"
 )
 
 type Config struct {
@@ -236,7 +236,7 @@ func summary(rpe int, s session.Session) string {
 	for _, c := range s.Climbs {
 		b.WriteString(climbLine(c))
 	}
-	b.WriteString("synced from Tension Board")
+	b.WriteString("synced by aurora-strava-sync")
 	return b.String()
 }
 

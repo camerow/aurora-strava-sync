@@ -1,4 +1,4 @@
-// Command tension-strava-sync syncs Tension Board sessions to Strava.
+// Command aurora-strava-sync syncs Aurora climbing board sessions to Strava.
 package main
 
 import (
@@ -8,9 +8,9 @@ import (
 
 	"golang.org/x/term"
 
-	"tension-strava-sync/aurora"
-	"tension-strava-sync/config"
-	"tension-strava-sync/strava"
+	"aurora-strava-sync/aurora"
+	"aurora-strava-sync/config"
+	"aurora-strava-sync/strava"
 )
 
 func main() {
@@ -27,8 +27,6 @@ func main() {
 		err = runPipeline(os.Args[2:], true)
 	case "install-schedule":
 		err = runInstallSchedule()
-	case "backfill-rpe":
-		err = runBackfillRPE()
 	default:
 		usage()
 	}
@@ -39,47 +37,50 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `usage: tension-strava-sync <command>
+	fmt.Fprintln(os.Stderr, `usage: aurora-strava-sync <command>
 
 commands:
-  connect tension    log in to the Tension Board account
+  connect board      log in to the Aurora board account (board set in config)
   connect strava     authorize the Strava application
   preview [--all|--since YYYY-MM-DD]   dry-run: show sessions and scores
   sync    [--all|--since YYYY-MM-DD]   post new sessions to Strava
-  install-schedule   run sync every 4 hours via launchd
-  backfill-rpe       set perceived exertion on already-posted activities`)
+  install-schedule   run sync every 4 hours via launchd`)
 	os.Exit(2)
 }
 
 func runConnect(args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("usage: connect tension|strava")
+		return fmt.Errorf("usage: connect board|strava")
 	}
 	switch args[0] {
-	case "tension":
+	case "board":
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
-		username := cfg.Tension.Username
+		baseURL, ok := aurora.BaseURLFor(cfg.Aurora.Board)
+		if !ok {
+			return fmt.Errorf("unknown board %q in config; valid: aurora, decoy, grasshopper, kilter, soill, tension, touchstone", cfg.Aurora.Board)
+		}
+		username := cfg.Aurora.Username
 		if username == "" {
-			fmt.Print("Tension username: ")
+			fmt.Print("Board username: ")
 			fmt.Scanln(&username)
 		}
-		fmt.Print("Tension password: ")
+		fmt.Print("Board password: ")
 		pw, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Println()
 		if err != nil {
 			return err
 		}
-		sess, err := aurora.NewClient("").Login(username, string(pw))
+		sess, err := aurora.NewClient(baseURL).Login(username, string(pw))
 		if err != nil {
 			return err
 		}
 		if err := aurora.SaveToken(sess); err != nil {
 			return err
 		}
-		fmt.Printf("Connected to Tension as user %d.\n", sess.UserID)
+		fmt.Printf("Connected to the board as user %d.\n", sess.UserID)
 		return nil
 	case "strava":
 		cfg, err := config.Load()

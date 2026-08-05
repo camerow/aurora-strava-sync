@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"tension-strava-sync/aurora"
+	"aurora-strava-sync/aurora"
 )
 
 func open(t *testing.T) *Store {

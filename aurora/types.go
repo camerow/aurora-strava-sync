@@ -1,5 +1,5 @@
 // Package aurora is a minimal client for the Aurora Climbing board API
-// (Tension Board 2). Endpoint shapes follow the BoardLib project.
+// (Tension, Kilter, and the other Aurora boards). Endpoint shapes follow the BoardLib project.
 package aurora
 
 import (

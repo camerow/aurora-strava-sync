@@ -10,14 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"tension-strava-sync/config"
+	"aurora-strava-sync/config"
 )
 
-var (
-	ErrRateLimited = errors.New("strava rate limit hit")
-	// ErrNotFound means the activity no longer exists on Strava (deleted).
-	ErrNotFound = errors.New("strava activity not found")
-)
+var ErrRateLimited = errors.New("strava rate limit hit")
 
 type Client struct {
 	cfg       config.StravaConfig
@@ -90,9 +86,6 @@ func (c *Client) SetPerceivedExertion(activityID int64, rpe int) error {
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return ErrRateLimited
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return ErrNotFound
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("set perceived exertion failed: HTTP %d", resp.StatusCode)

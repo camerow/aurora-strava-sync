@@ -10,6 +10,31 @@ import (
 	"time"
 )
 
+// HostBases maps Aurora board names to their web host base names. Every
+// Aurora Climbing board app speaks the same API on its own domain.
+var HostBases = map[string]string{
+	"aurora":      "auroraboardapp",
+	"decoy":       "decoyboardapp",
+	"grasshopper": "grasshopperboardapp",
+	"kilter":      "kilterboardapp",
+	"soill":       "soillboardapp",
+	"tension":     "tensionboardapp2",
+	"touchstone":  "touchstoneboardapp",
+}
+
+// BaseURLFor resolves a board name ("" defaults to tension) to its API base
+// URL; false when the board name is unknown.
+func BaseURLFor(board string) (string, bool) {
+	if board == "" {
+		board = "tension"
+	}
+	hb, ok := HostBases[board]
+	if !ok {
+		return "", false
+	}
+	return "https://" + hb + ".com", true
+}
+
 const (
 	DefaultBaseURL = "https://tensionboardapp2.com"
 	epochSyncDate  = "1970-01-01 00:00:00.000000"
@@ -47,7 +72,7 @@ func (c *Client) Login(username, password string) (Session, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusUnprocessableEntity {
-		return Session{}, fmt.Errorf("invalid Tension credentials")
+		return Session{}, fmt.Errorf("invalid board credentials")
 	}
 	// The live API returns 201 Created on successful login.
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
