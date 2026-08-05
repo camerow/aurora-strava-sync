@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -76,8 +77,12 @@ func Connect(cfg config.StravaConfig, openURL func(string) error) (Tokens, error
 		fmt.Fprintln(w, "Strava connected. You can close this tab.")
 		codeCh <- code
 	})
-	srv := &http.Server{Addr: callbackAddr, Handler: mux}
-	go srv.ListenAndServe()
+	ln, err := net.Listen("tcp", callbackAddr)
+	if err != nil {
+		return Tokens{}, fmt.Errorf("cannot listen on %s (already in use?): %w", callbackAddr, err)
+	}
+	srv := &http.Server{Handler: mux}
+	go srv.Serve(ln)
 	defer srv.Shutdown(context.Background())
 
 	authURL := DefaultOAuthBase + "/authorize?" + url.Values{
