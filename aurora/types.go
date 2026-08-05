@@ -27,6 +27,12 @@ type Bid struct {
 	ClimbedAt string `json:"climbed_at"`
 }
 
+// ClimbRow is the slice of the shared climbs table we cache: name per climb.
+type ClimbRow struct {
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
+}
+
 type ClimbStat struct {
 	ClimbUUID         string  `json:"climb_uuid"`
 	Angle             int     `json:"angle"`

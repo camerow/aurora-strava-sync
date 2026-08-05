@@ -68,3 +68,21 @@ func TestCursor(t *testing.T) {
 		t.Fatalf("cursor = %q", c)
 	}
 }
+
+func TestClimbNames(t *testing.T) {
+	s := open(t)
+	if err := s.PutClimbNames([]aurora.ClimbRow{{UUID: "c1", Name: "Jug Life"}}); err != nil {
+		t.Fatal(err)
+	}
+	n, ok, err := s.ClimbName("c1")
+	if err != nil || !ok || n != "Jug Life" {
+		t.Fatalf("ClimbName = %q,%v,%v", n, ok, err)
+	}
+	if _, ok, _ := s.ClimbName("missing"); ok {
+		t.Fatal("missing climb should not resolve")
+	}
+	s.PutClimbNames([]aurora.ClimbRow{{UUID: "c1", Name: "Jug Life v2"}})
+	if n, _, _ := s.ClimbName("c1"); n != "Jug Life v2" {
+		t.Fatalf("after upsert name = %q", n)
+	}
+}

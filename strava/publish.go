@@ -55,6 +55,9 @@ type Activity struct {
 	Description    string
 	StartDateLocal time.Time
 	ElapsedSeconds int
+	// PerceivedExertion (1-10) feeds Strava's native RPE field so effort
+	// trends chart over time; 0 omits the field.
+	PerceivedExertion int
 }
 
 func (c *Client) CreateActivity(a Activity) (int64, error) {
@@ -70,6 +73,9 @@ func (c *Client) CreateActivity(a Activity) (int64, error) {
 		"elapsed_time":     {strconv.Itoa(a.ElapsedSeconds)},
 		"description":      {a.Description},
 		"trainer":          {"0"},
+	}
+	if a.PerceivedExertion > 0 {
+		form.Set("perceived_exertion", strconv.Itoa(a.PerceivedExertion))
 	}
 	req, err := http.NewRequest("POST", c.apiBase+"/activities", strings.NewReader(form.Encode()))
 	if err != nil {

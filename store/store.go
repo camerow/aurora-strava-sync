@@ -36,6 +36,10 @@ func Open(path string) (*Store, error) {
 		display_difficulty REAL NOT NULL,
 		PRIMARY KEY (climb_uuid, angle)
 	);
+	CREATE TABLE IF NOT EXISTS climb_names (
+		climb_uuid TEXT PRIMARY KEY,
+		name TEXT NOT NULL
+	);
 	CREATE TABLE IF NOT EXISTS cursors (
 		name TEXT PRIMARY KEY,
 		value TEXT NOT NULL
@@ -80,6 +84,35 @@ func (s *Store) PutClimbStats(stats []aurora.ClimbStat) error {
 		}
 	}
 	return tx.Commit()
+}
+
+func (s *Store) PutClimbNames(rows []aurora.ClimbRow) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if _, err := tx.Exec(
+			`INSERT OR REPLACE INTO climb_names (climb_uuid, name) VALUES (?, ?)`,
+			r.UUID, r.Name); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Store) ClimbName(climbUUID string) (string, bool, error) {
+	var name string
+	err := s.db.QueryRow(
+		`SELECT name FROM climb_names WHERE climb_uuid = ?`, climbUUID).Scan(&name)
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return name, true, nil
 }
 
 func (s *Store) ClimbVGrade(climbUUID string, angle int) (int, bool, error) {

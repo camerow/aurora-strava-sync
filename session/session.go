@@ -15,7 +15,8 @@ const (
 
 type Climb struct {
 	Time   time.Time
-	VGrade int // -1 when unknown
+	VGrade int    // -1 when unknown
+	Name   string // climb name; empty when unknown
 	Kind   Kind
 	Tries  int
 }

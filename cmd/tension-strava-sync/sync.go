@@ -72,7 +72,7 @@ func runPipeline(args []string, post bool) error {
 	}
 	fmt.Printf("Fetched %d ascents, %d attempts from Tension.\n", len(ascents), len(bids))
 
-	if err := ensureClimbStats(client, st, auroraSess.Token, bids); err != nil {
+	if err := ensureClimbData(client, st, auroraSess.Token, ascents, bids); err != nil {
 		return err
 	}
 
@@ -117,8 +117,9 @@ func runPipeline(args []string, post bool) error {
 	return publish(cfg, st, selected)
 }
 
-// ensureClimbStats refreshes the climb_stats cache when any bid's climb is unknown.
-func ensureClimbStats(client *aurora.Client, st *store.Store, token string, bids []aurora.Bid) error {
+// ensureClimbData refreshes the shared climb caches (grades for bids, names
+// for everything) when any referenced climb is missing locally.
+func ensureClimbData(client *aurora.Client, st *store.Store, token string, ascents []aurora.Ascent, bids []aurora.Bid) error {
 	missing := false
 	for _, b := range bids {
 		if _, ok, err := st.ClimbVGrade(b.ClimbUUID, b.Angle); err != nil {
@@ -129,25 +130,52 @@ func ensureClimbStats(client *aurora.Client, st *store.Store, token string, bids
 		}
 	}
 	if !missing {
+		for _, a := range ascents {
+			if _, ok, err := st.ClimbName(a.ClimbUUID); err != nil {
+				return err
+			} else if !ok {
+				missing = true
+				break
+			}
+		}
+	}
+	if !missing {
 		return nil
 	}
-	cursor, err := st.GetCursor("climb_stats")
+	statsCursor, err := st.GetCursor("climb_stats")
+	if err != nil {
+		return err
+	}
+	climbsCursor, err := st.GetCursor("climbs")
 	if err != nil {
 		return err
 	}
 	fmt.Println("Refreshing climb grade data (first run can take a minute)...")
-	stats, newCursor, err := client.SyncClimbStats(token, cursor)
+	stats, climbs, newStatsCursor, newClimbsCursor, err := client.SyncShared(token, statsCursor, climbsCursor)
 	if err != nil {
 		return err
 	}
 	if err := st.PutClimbStats(stats); err != nil {
 		return err
 	}
-	return st.SetCursor("climb_stats", newCursor)
+	if err := st.PutClimbNames(climbs); err != nil {
+		return err
+	}
+	if err := st.SetCursor("climb_stats", newStatsCursor); err != nil {
+		return err
+	}
+	return st.SetCursor("climbs", newClimbsCursor)
 }
 
 func toClimbs(ascents []aurora.Ascent, bids []aurora.Bid, st *store.Store) ([]session.Climb, error) {
 	var out []session.Climb
+	name := func(climbUUID string) string {
+		n, ok, err := st.ClimbName(climbUUID)
+		if err != nil || !ok {
+			return ""
+		}
+		return n
+	}
 	for _, a := range ascents {
 		ts, err := aurora.ParseTime(a.ClimbedAt)
 		if err != nil {
@@ -157,7 +185,7 @@ func toClimbs(ascents []aurora.Ascent, bids []aurora.Bid, st *store.Store) ([]se
 		if !ok {
 			v = -1
 		}
-		out = append(out, session.Climb{Time: ts, VGrade: v, Kind: session.Send, Tries: a.BidCount})
+		out = append(out, session.Climb{Time: ts, VGrade: v, Name: name(a.ClimbUUID), Kind: session.Send, Tries: a.BidCount})
 	}
 	for _, b := range bids {
 		ts, err := aurora.ParseTime(b.ClimbedAt)
@@ -171,7 +199,7 @@ func toClimbs(ascents []aurora.Ascent, bids []aurora.Bid, st *store.Store) ([]se
 		if !ok {
 			v = -1
 		}
-		out = append(out, session.Climb{Time: ts, VGrade: v, Kind: session.Attempt, Tries: b.BidCount})
+		out = append(out, session.Climb{Time: ts, VGrade: v, Name: name(b.ClimbUUID), Kind: session.Attempt, Tries: b.BidCount})
 	}
 	return out, nil
 }
@@ -235,10 +263,11 @@ func publish(cfg config.Config, st *store.Store, selected []scored) error {
 			continue
 		}
 		id, err := client.CreateActivity(strava.Activity{
-			Name:           s.result.Title,
-			Description:    s.result.Summary,
-			StartDateLocal: s.sess.Start,
-			ElapsedSeconds: int(s.sess.End.Sub(s.sess.Start).Seconds()),
+			Name:              s.result.Title,
+			Description:       s.result.Summary,
+			StartDateLocal:    s.sess.Start,
+			ElapsedSeconds:    int(s.sess.End.Sub(s.sess.Start).Seconds()),
+			PerceivedExertion: s.result.RPE,
 		})
 		if errors.Is(err, strava.ErrRateLimited) {
 			fmt.Printf("Strava rate limit reached after %d activities; run sync again in 15 minutes to continue.\n", posted)

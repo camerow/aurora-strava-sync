@@ -66,6 +66,7 @@ type syncPage struct {
 	Ascents     []Ascent    `json:"ascents"`
 	Bids        []Bid       `json:"bids"`
 	ClimbStats  []ClimbStat `json:"climb_stats"`
+	Climbs      []ClimbRow  `json:"climbs"`
 	UserSyncs   []syncMark  `json:"user_syncs"`
 	SharedSyncs []syncMark  `json:"shared_syncs"`
 	Complete    bool        `json:"_complete"`
@@ -134,17 +135,23 @@ func (c *Client) SyncUser(token string) ([]Ascent, []Bid, error) {
 	return ascents, bids, err
 }
 
-// SyncClimbStats pulls shared climb difficulty stats incrementally.
-// Pass the previously returned cursor (or "" for a full pull); the new
-// cursor comes back for the caller to persist.
-func (c *Client) SyncClimbStats(token, sinceDate string) ([]ClimbStat, string, error) {
-	if sinceDate == "" {
-		sinceDate = epochSyncDate
+// SyncShared pulls the shared climb tables incrementally: climb_stats
+// (difficulty per climb+angle) and climbs (name per climb). Pass previously
+// returned cursors ("" for a full pull); updated cursors come back for the
+// caller to persist.
+func (c *Client) SyncShared(token, statsSince, climbsSince string) ([]ClimbStat, []ClimbRow, string, string, error) {
+	if statsSince == "" {
+		statsSince = epochSyncDate
 	}
-	cursors := map[string]string{"climb_stats": sinceDate}
+	if climbsSince == "" {
+		climbsSince = epochSyncDate
+	}
+	cursors := map[string]string{"climb_stats": statsSince, "climbs": climbsSince}
 	var stats []ClimbStat
+	var climbs []ClimbRow
 	err := c.syncTables(token, cursors, func(p syncPage) {
 		stats = append(stats, p.ClimbStats...)
+		climbs = append(climbs, p.Climbs...)
 	})
-	return stats, cursors["climb_stats"], err
+	return stats, climbs, cursors["climb_stats"], cursors["climbs"], err
 }

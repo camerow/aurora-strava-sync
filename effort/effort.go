@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"tension-strava-sync/session"
@@ -154,15 +155,15 @@ func median(xs []float64) float64 {
 func adjective(rpe int) string {
 	switch {
 	case rpe <= 3:
-		return "Easy board spin"
+		return "Easy climbing session"
 	case rpe <= 5:
-		return "Casual board session"
+		return "Casual climbing session"
 	case rpe <= 7:
-		return "Solid board session"
+		return "Solid climbing session"
 	case rpe <= 9:
-		return "Hard board session"
+		return "Hard climbing session"
 	default:
-		return "Max effort board session"
+		return "Max effort climbing session"
 	}
 }
 
@@ -188,9 +189,9 @@ func title(rpe int, s session.Session, volume bool) string {
 	// not limit attempts; name them accordingly.
 	if volume && rpe >= 8 {
 		if rpe == 10 {
-			adj = "Max volume board session"
+			adj = "Max volume climbing session"
 		} else {
-			adj = "High volume board session"
+			adj = "High volume climbing session"
 		}
 	}
 	_, hi := gradeRange(s)
@@ -207,20 +208,55 @@ func plural(n int, word string) string {
 	return fmt.Sprintf("%d %ss", n, word)
 }
 
+// summary is the Strava activity description: a stats header line followed
+// by a chronological per-climb log.
 func summary(rpe int, s session.Session) string {
 	sends, attempts := 0, 0
+	gradeSum, graded := 0, 0
 	for _, c := range s.Climbs {
 		if c.Kind == session.Send {
 			sends++
 		} else {
 			attempts++
 		}
+		if c.VGrade >= 0 {
+			gradeSum += c.VGrade
+			graded++
+		}
 	}
 	lo, hi := gradeRange(s)
 	grades := ""
 	if lo >= 0 {
-		grades = fmt.Sprintf(" · V%d-V%d", lo, hi)
+		grades = fmt.Sprintf(" · V%d-V%d · avg V%.1f", lo, hi, float64(gradeSum)/float64(graded))
 	}
-	return fmt.Sprintf("RPE %d/10 · %s, %s%s · synced from Tension Board",
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "RPE %d/10 · %s, %s%s\n",
 		rpe, plural(sends, "send"), plural(attempts, "attempt"), grades)
+	for _, c := range s.Climbs {
+		b.WriteString(climbLine(c))
+	}
+	b.WriteString("synced from Tension Board")
+	return b.String()
+}
+
+// climbLine renders one log entry, e.g. "✓ V6 Sleight of Hand" or
+// "✗ V8 Mind Meld (3 tries)".
+func climbLine(c session.Climb) string {
+	mark := "✓"
+	if c.Kind == session.Attempt {
+		mark = "✗"
+	}
+	grade := "V?"
+	if c.VGrade >= 0 {
+		grade = fmt.Sprintf("V%d", c.VGrade)
+	}
+	line := mark + " " + grade
+	if c.Name != "" {
+		line += " " + c.Name
+	}
+	if c.Tries > 1 {
+		line += fmt.Sprintf(" (%d tries)", c.Tries)
+	}
+	return line + "\n"
 }

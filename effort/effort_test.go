@@ -58,7 +58,7 @@ func TestScoreMedianSessionIsSix(t *testing.T) {
 	if res.RPE != 6 {
 		t.Fatalf("median session RPE = %d want 6", res.RPE)
 	}
-	if !strings.Contains(res.Title, "Solid board session") {
+	if !strings.Contains(res.Title, "Solid climbing session") {
 		t.Fatalf("title = %q", res.Title)
 	}
 	if !strings.Contains(res.Title, "10 climbs, top V4") {
@@ -106,15 +106,28 @@ func TestScoreEmptyHistoryDefaultsToSix(t *testing.T) {
 
 func TestSummaryLine(t *testing.T) {
 	s := session.Session{Climbs: []session.Climb{
-		{Time: at(1, 18, 0), VGrade: 4, Kind: session.Send},
-		{Time: at(1, 18, 10), VGrade: 7, Kind: session.Send},
-		{Time: at(1, 18, 20), VGrade: 7, Kind: session.Attempt},
+		{Time: at(1, 18, 0), VGrade: 4, Name: "Jug Life", Kind: session.Send},
+		{Time: at(1, 18, 10), VGrade: 7, Name: "Crimp Reaper", Kind: session.Send},
+		{Time: at(1, 18, 20), VGrade: 7, Name: "Crimp Reaper", Kind: session.Attempt, Tries: 3},
 	}, Start: at(1, 17, 50), End: at(1, 18, 25)}
 	res := Score(s, nil, DefaultConfig())
-	for _, want := range []string{"2 sends", "1 attempt", "V4-V7", "synced from Tension Board", "RPE"} {
+	for _, want := range []string{
+		"2 sends", "1 attempt", "V4-V7", "avg V6.0", "synced from Tension Board", "RPE",
+		"✓ V4 Jug Life", "✓ V7 Crimp Reaper", "✗ V7 Crimp Reaper (3 tries)",
+	} {
 		if !strings.Contains(res.Summary, want) {
 			t.Errorf("summary %q missing %q", res.Summary, want)
 		}
+	}
+}
+
+func TestSummaryOmitsGradeStatsWhenUnknown(t *testing.T) {
+	s := session.Session{Climbs: []session.Climb{
+		{Time: at(1, 18, 0), VGrade: -1, Kind: session.Attempt},
+	}, Start: at(1, 17, 50), End: at(1, 18, 5)}
+	res := Score(s, nil, DefaultConfig())
+	if strings.Contains(res.Summary, "avg") || !strings.Contains(res.Summary, "✗ V?") {
+		t.Fatalf("summary = %q", res.Summary)
 	}
 }
 
@@ -136,20 +149,20 @@ func TestVolumeSessionTitles(t *testing.T) {
 	if volume.RPE < 8 {
 		t.Fatalf("volume session RPE = %d, want >= 8", volume.RPE)
 	}
-	if !strings.Contains(volume.Title, "volume board session") {
+	if !strings.Contains(volume.Title, "volume climbing session") {
 		t.Fatalf("volume session title = %q, want volume wording", volume.Title)
 	}
-	if volume.RPE == 10 && !strings.Contains(volume.Title, "Max volume board session") {
+	if volume.RPE == 10 && !strings.Contains(volume.Title, "Max volume climbing session") {
 		t.Fatalf("RPE 10 volume title = %q", volume.Title)
 	}
 	// Big session AT max grade stays on the effort ladder.
 	limit := Score(mkSession(10, 18, 40, 6), history, DefaultConfig())
-	if strings.Contains(limit.Title, "volume board session") {
+	if strings.Contains(limit.Title, "volume climbing session") {
 		t.Fatalf("limit session mislabeled as volume: %q", limit.Title)
 	}
 	// One grade below max is still limit-style (needs 2+ below for volume).
 	near := Score(mkSession(10, 18, 40, 5), history, DefaultConfig())
-	if strings.Contains(near.Title, "volume board session") {
+	if strings.Contains(near.Title, "volume climbing session") {
 		t.Fatalf("near-max session mislabeled as volume: %q", near.Title)
 	}
 }
