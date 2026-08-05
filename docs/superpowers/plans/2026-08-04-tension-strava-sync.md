@@ -12,6 +12,8 @@ Everything else is stdlib.
 
 **Spec:** `docs/superpowers/specs/2026-08-04-tension-strava-sync-design.md`.
 One amendment discovered during planning: Aurora `bids` rows carry no difficulty, so attempt grades come from the shared `climb_stats` table (synced via the same `/sync` endpoint, cached in the state DB).
+The effort rolling-max nudge compares strictly above (greater than) the rolling max, which preserves the median RPE of 6 calibration anchor.
+The publisher does not pre-space Strava requests and relies on 429-resume instead.
 
 ## Global Constraints
 

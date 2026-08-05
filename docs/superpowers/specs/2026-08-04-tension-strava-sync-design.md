@@ -79,9 +79,14 @@ Scoring:
 
 - Base = normalized load mapped through a curve where the user's median session lands at ~6.
 - Density nudges up to +1 (high) or -1 (casual pace).
-- Attempting at or above rolling max grade nudges up (projecting sessions feel maximal even at low volume).
+- Climbing strictly above the rolling max sent grade nudges up (breaking new ground feels maximal even at low volume).
+  Strictly above rather than at-or-above: an at-or-above rule would inflate every session touching the user's regular max and break the median-lands-at-6 calibration anchor.
 
-Title mapping: 1-3 "Easy board spin", 4-5 "Casual board session", 6-7 "Solid board session", 8-9 "Hard board session", 10 "Max effort board session", suffixed with facts: "Hard board session · 18 climbs, top V7".
+Title mapping: 1-3 "Easy climbing session", 4-5 "Casual climbing session", 6-7 "Solid climbing session", 8-9 "Hard climbing session", 10 "Max effort climbing session", suffixed with facts: "Hard climbing session · 18 climbs, top V7".
+Volume exception (per Will's live-test feedback): when a high-scoring session's top grade sits 2+ V-grades below the rolling max, the effort came from volume rather than limit attempts, so RPE 8-9 titles become "High volume climbing session" and RPE 10 "Max volume climbing session".
+"Max effort" is reserved for sessions at or near limit grades.
+The description is a stats header (RPE, sends/attempts, grade range, average V) followed by a chronological per-climb log with names, sourced from the shared climbs table cached locally.
+The session RPE is also sent as Strava's perceived_exertion field so effort trends chart natively.
 
 All thresholds (point curve, bid weight, gap threshold, density bands, buffers) live in one config struct with defaults.
 
