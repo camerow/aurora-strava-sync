@@ -62,12 +62,12 @@ func (c *Client) Login(username, password string) (Session, error) {
 }
 
 type syncPage struct {
-	Ascents    []Ascent    `json:"ascents"`
-	Bids       []Bid       `json:"bids"`
-	ClimbStats []ClimbStat `json:"climb_stats"`
-	UserSyncs  []syncMark  `json:"user_syncs"`
-	SharedSyncs []syncMark `json:"shared_syncs"`
-	Complete   bool        `json:"_complete"`
+	Ascents     []Ascent    `json:"ascents"`
+	Bids        []Bid       `json:"bids"`
+	ClimbStats  []ClimbStat `json:"climb_stats"`
+	UserSyncs   []syncMark  `json:"user_syncs"`
+	SharedSyncs []syncMark  `json:"shared_syncs"`
+	Complete    bool        `json:"_complete"`
 }
 
 type syncMark struct {

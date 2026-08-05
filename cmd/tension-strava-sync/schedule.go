@@ -39,6 +39,9 @@ func runInstallSchedule() error {
 	}
 	logPath := filepath.Join(home, ".tension-strava-sync", "sync.log")
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", "com.tension-strava-sync.plist")
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
+		return err
+	}
 	content := fmt.Sprintf(plistTemplate, bin, logPath, logPath)
 	if err := os.WriteFile(plistPath, []byte(content), 0o644); err != nil {
 		return err

@@ -62,8 +62,10 @@ func (c *Client) CreateActivity(a Activity) (int64, error) {
 		return 0, err
 	}
 	form := url.Values{
-		"name":             {a.Name},
-		"sport_type":       {"RockClimbing"},
+		"name":       {a.Name},
+		"sport_type": {"RockClimbing"},
+		// the literal Z suffix is deliberate - Strava's start_date_local takes wall-clock time and
+		// ignores the zone designator; do not switch to RFC3339 with a real offset
 		"start_date_local": {a.StartDateLocal.Format("2006-01-02T15:04:05Z")},
 		"elapsed_time":     {strconv.Itoa(a.ElapsedSeconds)},
 		"description":      {a.Description},
