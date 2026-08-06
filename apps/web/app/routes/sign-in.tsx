@@ -137,17 +137,26 @@ export default function SignIn(): React.ReactElement {
           await navigate("/app");
           return;
         }
+        setError(`Sign-in incomplete (status: ${result.status ?? "unknown"}). Try resending.`);
       } else {
-        const result = await clerk.client.signUp.attemptEmailAddressVerification({
+        let signUp = await clerk.client.signUp.attemptEmailAddressVerification({
           code: code.trim(),
         });
-        if (result.status === "complete" && result.createdSessionId !== null) {
-          await clerk.setActive({ session: result.createdSessionId });
+        if (signUp.status === "missing_requirements" && signUp.missingFields.length === 0) {
+          signUp = await signUp.update({});
+        }
+        if (signUp.status === "complete" && signUp.createdSessionId !== null) {
+          await clerk.setActive({ session: signUp.createdSessionId });
           await navigate("/app");
           return;
         }
+        const missing = signUp.missingFields.join(", ");
+        setError(
+          `Account creation incomplete (status: ${signUp.status ?? "unknown"}${
+            missing !== "" ? `, missing: ${missing}` : ""
+          }). This is a setup gap on our side - tell us what this says.`
+        );
       }
-      setError("That code didn't verify. Try again or resend.");
     } catch (err) {
       setError(clerkErrorMessage(err));
     }

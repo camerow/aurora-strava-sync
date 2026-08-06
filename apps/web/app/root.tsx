@@ -6,7 +6,10 @@ import type { LinksFunction, LoaderFunctionArgs, MiddlewareFunction } from "reac
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from "react-router";
 import designStyles from "@sendtally/design/styles.css?url";
 
-export const links: LinksFunction = () => [{ rel: "stylesheet", href: designStyles }];
+export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: designStyles },
+  { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+];
 
 export const middleware: MiddlewareFunction<Response>[] = [clerkMiddleware()];
 
