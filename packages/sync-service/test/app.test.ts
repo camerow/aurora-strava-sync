@@ -30,6 +30,11 @@ describe("app", () => {
         respond: () => jsonResponse(201, { session: { token: "tok-abc", user_id: 42 } }),
       },
     ]);
+    const queued: unknown[] = [];
+    const fakeEnv = {
+      ...env,
+      SYNC_QUEUE: { send: async (msg: unknown) => void queued.push(msg) },
+    } as unknown as Env;
     const res = await testApp(fetchImpl).request(
       "/v1/connect/board",
       {
@@ -42,9 +47,10 @@ describe("app", () => {
           timezone: "America/New_York",
         }),
       },
-      env
+      fakeEnv
     );
     expect(res.status).toBe(200);
+    expect(queued).toEqual([{ userId: "user_connect" }]);
     expect(await res.json()).toEqual({ board: "tension", boardUserId: 42 });
 
     const loginCall = calls.find((c) => c.url.endsWith("/sessions"));

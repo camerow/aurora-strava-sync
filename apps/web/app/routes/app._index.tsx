@@ -40,6 +40,13 @@ export default function Sessions(): React.ReactElement {
   const revalidator = useRevalidator();
   const boardLabel = BOARD_LABELS[status.board?.board ?? ""] ?? "Board";
   const [syncRequested, setSyncRequested] = React.useState(false);
+  const importing = status.sync?.lastSyncedAt == null;
+
+  React.useEffect(() => {
+    if (!importing) return;
+    const timer = setInterval(() => revalidator.revalidate(), 4000);
+    return () => clearInterval(timer);
+  }, [importing, revalidator]);
 
   async function syncNow(): Promise<void> {
     setSyncRequested(true);
@@ -93,6 +100,43 @@ export default function Sessions(): React.ReactElement {
           {syncRequested ? "Sync queued…" : "Sync now"}
         </button>
       </div>
+      {importing && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            background: "var(--bs-gunmetal-deep)",
+            borderRadius: "var(--radius-card)",
+            padding: "16px 20px",
+            marginTop: 22,
+          }}
+        >
+          <span
+            style={{
+              width: 12,
+              height: 12,
+              flex: "none",
+              border: "2px solid rgba(249,220,92,0.35)",
+              borderTopColor: "var(--bs-gold)",
+              borderRadius: "50%",
+              animation: "st-spin 0.7s linear infinite",
+            }}
+          />
+          <style>{"@keyframes st-spin{to{transform:rotate(360deg)}}"}</style>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontWeight: 500,
+              fontSize: 12,
+              letterSpacing: "0.06em",
+              color: "rgba(239,188,213,0.88)",
+            }}
+          >
+            READING YOUR LOGBOOK - the first import can take a minute. This page refreshes itself.
+          </span>
+        </div>
+      )}
       {status.strava?.status !== "active" && (
         <div
           style={{
@@ -132,7 +176,7 @@ export default function Sessions(): React.ReactElement {
           <SessionRowItem key={s.fingerprint} session={s} boardLabel={boardLabel} />
         ))}
       </div>
-      {sessions.length === 0 && (
+      {sessions.length === 0 && !importing && (
         <div
           style={{
             padding: 36,

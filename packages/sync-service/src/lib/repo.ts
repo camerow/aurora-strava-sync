@@ -329,6 +329,15 @@ export async function setBoardCursor(
     .run();
 }
 
+export type SyncStateRow = { last_synced_at: string | null; last_error: string | null };
+
+export async function getSyncState(db: D1Database, userId: string): Promise<SyncStateRow | null> {
+  return db
+    .prepare(`SELECT last_synced_at, last_error FROM sync_state WHERE user_id = ?`)
+    .bind(userId)
+    .first<SyncStateRow>();
+}
+
 export async function recordSyncResult(
   db: D1Database,
   userId: string,

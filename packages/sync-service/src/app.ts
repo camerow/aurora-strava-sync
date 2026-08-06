@@ -98,6 +98,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       refresh_token_ciphertext: await encryptSecret(exchanged.tokens.refreshToken, c.env.TOKEN_KEY),
       expires_at: exchanged.tokens.expiresAt,
     });
+    await c.env.SYNC_QUEUE.send({ userId: state.userId });
     return c.redirect(`${c.env.WEB_APP_URL}/connected/strava`);
   });
 
@@ -135,6 +136,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       token_ciphertext: await encryptSecret(session.token, c.env.TOKEN_KEY),
       sync_since: syncSince,
     });
+    await c.env.SYNC_QUEUE.send({ userId });
     return c.json({ board, boardUserId: session.userId });
   });
 
@@ -170,9 +172,12 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const userId = c.get("userId");
     const board = await repo.getBoardConnection(c.env.DB, userId);
     const strava = await repo.getStravaConnection(c.env.DB, userId);
+    const sync = await repo.getSyncState(c.env.DB, userId);
     return c.json({
       board: board === null ? null : { board: board.board, status: board.status },
       strava: strava === null ? null : { athleteId: strava.athlete_id, status: strava.status },
+      sync:
+        sync === null ? null : { lastSyncedAt: sync.last_synced_at, lastError: sync.last_error },
     });
   });
 

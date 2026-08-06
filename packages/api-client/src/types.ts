@@ -1,6 +1,7 @@
 export type ConnectionStatus = {
   board: { board: string; status: string } | null;
   strava: { athleteId: number; status: string } | null;
+  sync: { lastSyncedAt: string | null; lastError: string | null } | null;
 };
 
 export type SessionRow = {
