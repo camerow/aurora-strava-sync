@@ -74,10 +74,12 @@ tension-strava-sync/
 ### Task 1: Scaffold and config package
 
 **Files:**
+
 - Create: `go.mod`, `config/config.go`
 - Test: `config/config_test.go`
 
 **Interfaces:**
+
 - Produces: `config.Dir() (string, error)` - returns `$TENSION_STRAVA_SYNC_DIR` if set, else `~/.tension-strava-sync`.
 - Produces: `config.Load() (Config, error)` where:
 
@@ -218,10 +220,12 @@ git commit -m "feat: scaffold module and config loading"
 ### Task 2: grades package (vendored difficulty table)
 
 **Files:**
+
 - Create: `grades/grades.go`
 - Test: `grades/grades_test.go`
 
 **Interfaces:**
+
 - Produces: `grades.V(difficulty int) (int, bool)` - Aurora integer difficulty to V-grade number; false when unknown.
 - Produces: `grades.VFromDisplay(display float64) (int, bool)` - rounds `climb_stats.display_difficulty` to nearest int then maps.
 
@@ -331,10 +335,12 @@ git commit -m "feat: add vendored Aurora difficulty to V-grade table"
 ### Task 3: aurora types and client
 
 **Files:**
+
 - Create: `aurora/types.go`, `aurora/client.go`
 - Test: `aurora/client_test.go`
 
 **Interfaces:**
+
 - Consumes: nothing internal.
 - Produces:
 
@@ -712,9 +718,11 @@ git commit -m "feat: add Aurora API client with paginated sync"
 ### Task 4: Keychain token storage
 
 **Files:**
+
 - Create: `aurora/keychain.go`
 
 **Interfaces:**
+
 - Produces: `aurora.SaveToken(session Session) error` and `aurora.LoadToken() (Session, bool)` using the macOS `security` CLI, service name `tension-strava-sync`, account `tension`.
   The token and user ID are stored together as `<user_id>:<token>`.
   These shell out and are not unit-tested; they are exercised in the live E2E task.
@@ -782,10 +790,12 @@ git commit -m "feat: store Aurora session token in macOS Keychain"
 ### Task 5: session builder
 
 **Files:**
+
 - Create: `session/session.go`
 - Test: `session/session_test.go`
 
 **Interfaces:**
+
 - Consumes: nothing internal (pure package; callers convert aurora rows to `Climb`).
 - Produces:
 
@@ -990,10 +1000,12 @@ git commit -m "feat: add session builder with gap splitting and buffers"
 ### Task 6: effort engine
 
 **Files:**
+
 - Create: `effort/effort.go`
 - Test: `effort/effort_test.go`
 
 **Interfaces:**
+
 - Consumes: `session.Session`, `session.Climb`, `session.Send`, `session.Attempt`.
 - Produces:
 
@@ -1384,10 +1396,12 @@ git commit -m "feat: add effort scoring engine"
 ### Task 7: state store
 
 **Files:**
+
 - Create: `store/store.go`
 - Test: `store/store_test.go`
 
 **Interfaces:**
+
 - Consumes: `config.Dir()` for the default path.
 - Produces:
 
@@ -1617,10 +1631,12 @@ git commit -m "feat: add SQLite state store with climb stats cache"
 ### Task 8: Strava OAuth and publisher
 
 **Files:**
+
 - Create: `strava/oauth.go`, `strava/publish.go`
 - Test: `strava/strava_test.go`
 
 **Interfaces:**
+
 - Consumes: `config.StravaConfig`, `config.Dir()`.
 - Produces:
 
@@ -2004,9 +2020,11 @@ git commit -m "feat: add Strava OAuth flow and activity publisher"
 ### Task 9: CLI pipeline (connect, preview, sync)
 
 **Files:**
+
 - Create: `cmd/tension-strava-sync/main.go`, `cmd/tension-strava-sync/sync.go`
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: the `tension-strava-sync` binary with subcommands `connect tension`, `connect strava`, `preview`, `sync`; flags `--all` and `--since YYYY-MM-DD` on preview/sync.
 
@@ -2421,9 +2439,11 @@ git commit -m "feat: add CLI with connect, preview, and sync commands"
 ### Task 10: launchd schedule installer
 
 **Files:**
+
 - Create: `cmd/tension-strava-sync/schedule.go`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: `runInstallSchedule() error` (already dispatched from `main.go`).
   Writes `~/Library/LaunchAgents/com.tension-strava-sync.plist` running `sync` every 4 hours, then loads it.

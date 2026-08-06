@@ -1,0 +1,17 @@
+:root {
+  --radius-sm: 6px;
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-card-lg: 16px;
+  --radius-panel: 20px;
+  --radius-pill: 20px;
+
+  --shadow-float: 0 24px 60px rgba(20, 19, 26, 0.4);
+  --shadow-none: none;
+
+  --focus-ring-azure: 0 0 0 3px rgba(49, 133, 252, 0.28);
+  --focus-ring-azure-strong: 0 0 0 3px rgba(49, 133, 252, 0.45);
+
+  --motion-fast: 120ms ease-out;
+  --motion-base: 180ms ease-out;
+}

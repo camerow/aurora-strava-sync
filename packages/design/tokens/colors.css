@@ -1,0 +1,47 @@
+:root {
+  /* Base palette */
+  --bs-gunmetal: #403f4c;
+  --bs-gunmetal-deep: #35343f;
+  --bs-watermelon: #e84855; /* fills only - never behind white text */
+  --bs-watermelon-press: #d63a47;
+  --bs-watermelon-ink: #c4303d; /* AA-safe watermelon: text on white AND filled-button ground */
+  --bs-watermelon-ink-press: #a62633;
+  --bs-gold: #f9dc5c;
+  --bs-gold-hover: #fbe583;
+  --bs-azure: #3185fc; /* data viz and non-text fills only */
+  --bs-azure-press: #1f6ad8;
+  --bs-azure-ink: #1b62ce; /* AA-safe azure: text on white AND filled-button ground */
+  --bs-azure-ink-press: #144ea6;
+  --bs-petal: #efbcd5;
+  --bs-white: #ffffff;
+
+  /* Surfaces */
+  --surface-page: var(--bs-gunmetal);
+  --surface-card: var(--bs-white);
+  --surface-panel: var(--bs-gunmetal);
+  --surface-accent-pink: var(--bs-petal);
+  --surface-accent-gold: var(--bs-gold);
+
+  /* Text on dark (gunmetal) */
+  --text-on-dark: var(--bs-white);
+  --text-on-dark-secondary: rgba(239, 188, 213, 0.88); /* 5.4:1 */
+  --text-on-dark-muted: rgba(239, 188, 213, 0.8); /* 4.6:1 - smallest allowed */
+  --text-on-dark-label: var(--bs-gold); /* 7.5:1 */
+
+  /* Text on light (white / petal / gold) */
+  --text-on-light: var(--bs-gunmetal); /* 6.2:1 on petal, 7.5:1 on gold */
+  --text-on-light-secondary: rgba(64, 63, 76, 0.88); /* 4.8:1 on petal */
+  --text-on-white-secondary: rgba(64, 63, 76, 0.72); /* 5.5:1 on white */
+  --text-label-accent: var(--bs-watermelon-ink);
+  --text-link: var(--bs-azure-ink);
+
+  /* Lines */
+  --line-on-dark: rgba(239, 188, 213, 0.18);
+  --line-on-light: rgba(64, 63, 76, 0.1);
+  --line-on-light-soft: rgba(64, 63, 76, 0.08);
+
+  /* Data viz */
+  --data-bar: var(--bs-azure);
+  --data-bar-peak: var(--bs-watermelon);
+  --data-bar-empty: rgba(64, 63, 76, 0.14);
+}
