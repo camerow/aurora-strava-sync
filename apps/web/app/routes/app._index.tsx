@@ -13,7 +13,7 @@ type LoaderData = {
 export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
   const api = await requireApi(args);
   const status = await api.status();
-  if (status.strava?.status !== "active" || status.board?.status !== "active") {
+  if (status.board?.status !== "active") {
     throw redirect("/app/setup");
   }
   const { sessions } = await api.sessions();
@@ -93,6 +93,40 @@ export default function Sessions(): React.ReactElement {
           {syncRequested ? "Sync queued…" : "Sync now"}
         </button>
       </div>
+      {status.strava?.status !== "active" && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            background: "var(--surface-accent-pink)",
+            borderRadius: "var(--radius-card)",
+            padding: "16px 20px",
+            marginTop: 22,
+          }}
+        >
+          <span style={{ flex: 1, fontSize: 14, lineHeight: 1.5, color: "var(--text-on-light)" }}>
+            Sessions are recorded here but not posted anywhere. Connect Strava and each one becomes
+            a Rock Climbing activity on your feed.
+          </span>
+          <a
+            href="/app/setup"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontWeight: 600,
+              fontSize: 13,
+              color: "var(--bs-white)",
+              background: "var(--bs-azure-ink)",
+              borderRadius: "var(--radius-control)",
+              padding: "9px 16px",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Connect Strava
+          </a>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22 }}>
         {sessions.map((s) => (
           <SessionRowItem key={s.fingerprint} session={s} boardLabel={boardLabel} />

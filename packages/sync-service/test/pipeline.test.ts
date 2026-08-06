@@ -200,6 +200,32 @@ describe("syncOneUser", () => {
     expect(conn?.status).toBe("dead");
   });
 
+  it("computes and stores sessions without a Strava connection", async () => {
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', ?)`)
+      .bind(userId, new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
+       VALUES (?, 'tension', 46, ?, 'active', NULL, ?)`
+    )
+      .bind(userId, await encryptSecret("board-token", env.TOKEN_KEY), new Date().toISOString())
+      .run();
+    const { fetchImpl, calls } = makeFakeFetch(auroraRoutes());
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome).toEqual({ status: "no_strava", posted: 0 });
+
+    const rows = await env.DB.prepare(
+      `SELECT rpe, strava_activity_id FROM sessions WHERE user_id = ?`
+    )
+      .bind(userId)
+      .all<{ rpe: number; strava_activity_id: number | null }>();
+    expect(rows.results).toHaveLength(1);
+    expect(rows.results[0]!.rpe).toBeGreaterThan(0);
+    expect(rows.results[0]!.strava_activity_id).toBeNull();
+    expect(calls.every((c) => !c.url.includes("strava"))).toBe(true);
+  });
+
   it("respects sync_since as the posting cutoff", async () => {
     await seedUser(userId, 45, 10);
     await env.DB.prepare(`UPDATE board_connections SET sync_since = ? WHERE user_id = ?`)

@@ -22,7 +22,7 @@ import { StravaClient, StravaRateLimitedError, StravaUnauthorizedError } from ".
 import { parseAuroraTime, wallClockNow } from "./lib/time";
 
 export type SyncOutcome = {
-  status: "synced" | "rate_limited" | "board_dead" | "strava_dead" | "not_connected";
+  status: "synced" | "no_strava" | "rate_limited" | "board_dead" | "strava_dead" | "not_connected";
   posted: number;
 };
 
@@ -34,11 +34,10 @@ export async function syncOneUser(
   const user = await repo.getUser(env.DB, userId);
   const boardConn = await repo.getBoardConnection(env.DB, userId);
   const stravaConn = await repo.getStravaConnection(env.DB, userId);
-  if (user === null || boardConn === null || stravaConn === null) {
+  if (user === null || boardConn === null) {
     return { status: "not_connected", posted: 0 };
   }
   if (boardConn.status !== "active") return { status: "board_dead", posted: 0 };
-  if (stravaConn.status !== "active") return { status: "strava_dead", posted: 0 };
 
   const baseUrl = baseUrlFor(boardConn.board);
   if (baseUrl === undefined) throw new Error(`unknown board ${boardConn.board}`);
@@ -87,6 +86,11 @@ export async function syncOneUser(
       title: s.result.title,
       summary: s.result.summary,
     });
+  }
+
+  if (stravaConn === null || stravaConn.status !== "active") {
+    await repo.recordSyncResult(env.DB, userId, null);
+    return { status: "no_strava", posted: 0 };
   }
 
   const posted = await repo.postedSessionFingerprints(env.DB, userId);

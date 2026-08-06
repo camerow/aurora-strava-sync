@@ -35,7 +35,10 @@ export async function action(args: ActionFunctionArgs): Promise<Response | { err
       if (err instanceof ApiError && err.status === 422) {
         return { error: "Aurora rejected that login. Check the username and password." };
       }
-      return { error: "Could not reach the board service. Try again in a minute." };
+      if (err instanceof ApiError) {
+        return { error: `Board connect failed (HTTP ${err.status}: ${err.message}).` };
+      }
+      return { error: `Board connect failed (${err instanceof Error ? err.message : "unknown"}).` };
     }
     return redirect("/app/setup");
   }
@@ -91,11 +94,12 @@ const fieldStyle: React.CSSProperties = {
 
 function StravaStep(): React.ReactElement {
   return (
-    <StepCard step="STEP 2 OF 4 · STRAVA" width={520}>
+    <StepCard step="STEP 3 OF 4 · STRAVA · OPTIONAL" width={520}>
       <StepTitle>Connect Strava.</StepTitle>
       <StepBody>
         Each board session becomes one Rock Climbing activity on your feed. You approve this on
-        strava.com; we keep the token, and you can revoke it there any time.
+        strava.com; we keep the token, and you can revoke it there any time. Skip it and your
+        sessions still land in sendtally - connect whenever you want them on Strava.
       </StepBody>
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={detailRow}>
@@ -111,12 +115,25 @@ function StravaStep(): React.ReactElement {
           <span style={detailBody}>Your other activities, messages, or followers</span>
         </div>
       </div>
-      <Form method="post">
-        <input type="hidden" name="intent" value="strava" />
-        <button type="submit" style={primaryButton}>
-          Continue to Strava →
-        </button>
-      </Form>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <Form method="post">
+          <input type="hidden" name="intent" value="strava" />
+          <button type="submit" style={primaryButton}>
+            Continue to Strava →
+          </button>
+        </Form>
+        <a
+          href="/app"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            color: "rgba(64,63,76,0.6)",
+            textDecoration: "underline",
+          }}
+        >
+          Skip for now
+        </a>
+      </div>
     </StepCard>
   );
 }
@@ -138,7 +155,7 @@ function BoardStep({ error, busy }: { error: string | null; busy: boolean }): Re
   }, []);
 
   return (
-    <StepCard step="STEP 3 OF 4 · BOARDS" width={560}>
+    <StepCard step="STEP 2 OF 4 · BOARDS" width={560}>
       <StepTitle>Link your board.</StepTitle>
       <StepBody>
         Board apps run on Aurora Climbing accounts - one login per app. sendtally signs in once to
@@ -221,10 +238,10 @@ export default function Setup(): React.ReactElement {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const busy = navigation.state === "submitting";
-  const stravaDone = status.strava?.status === "active";
+  const boardDone = status.board?.status === "active";
   const error = actionData !== undefined && "error" in actionData ? actionData.error : null;
 
   return (
-    <AuthShell>{stravaDone ? <BoardStep error={error} busy={busy} /> : <StravaStep />}</AuthShell>
+    <AuthShell>{boardDone ? <StravaStep /> : <BoardStep error={error} busy={busy} />}</AuthShell>
   );
 }

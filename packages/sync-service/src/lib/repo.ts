@@ -349,9 +349,8 @@ export async function usersDueForSync(db: D1Database, olderThanMs: number): Prom
     .prepare(
       `SELECT bc.user_id AS user_id
        FROM board_connections bc
-       JOIN strava_connections sc ON sc.user_id = bc.user_id
        LEFT JOIN sync_state ss ON ss.user_id = bc.user_id
-       WHERE bc.status = 'active' AND sc.status = 'active'
+       WHERE bc.status = 'active'
          AND (ss.last_synced_at IS NULL OR ss.last_synced_at < ?)`
     )
     .bind(cutoff)
