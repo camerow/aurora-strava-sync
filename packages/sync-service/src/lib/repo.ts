@@ -43,6 +43,15 @@ export async function upsertUser(db: D1Database, id: string, timezone: string): 
     .run();
 }
 
+export async function ensureUser(db: D1Database, id: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', ?) ON CONFLICT(id) DO NOTHING`
+    )
+    .bind(id, new Date().toISOString())
+    .run();
+}
+
 export async function getUser(db: D1Database, id: string): Promise<UserRow | null> {
   return db.prepare(`SELECT id, timezone FROM users WHERE id = ?`).bind(id).first<UserRow>();
 }

@@ -135,6 +135,35 @@ describe("app", () => {
     expect(conn?.status).toBe("dead");
   });
 
+  it("completes the OAuth callback for a user with no users row yet", async () => {
+    const state = await encryptSecret(
+      JSON.stringify({ userId: "user_fresh", nonce: "n", exp: Date.now() + 60_000 }),
+      env.TOKEN_KEY
+    );
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.includes("/oauth/token"),
+        respond: () =>
+          jsonResponse(200, {
+            access_token: "at",
+            refresh_token: "rt",
+            expires_at: 4102444800,
+            athlete: { id: 1234 },
+          }),
+      },
+    ]);
+    const res = await testApp(fetchImpl).request(
+      `/connect/strava/callback?code=x&state=${encodeURIComponent(state)}`,
+      {},
+      env
+    );
+    expect(res.status).toBe(302);
+    const conn = await env.DB.prepare(
+      `SELECT athlete_id FROM strava_connections WHERE user_id = 'user_fresh'`
+    ).first<{ athlete_id: number }>();
+    expect(conn?.athlete_id).toBe(1234);
+  });
+
   it("binds the OAuth callback to the browser nonce when the cookie is present", async () => {
     await env.DB.prepare(
       `INSERT INTO users (id, timezone, created_at) VALUES ('user_oauth', 'UTC', '')`

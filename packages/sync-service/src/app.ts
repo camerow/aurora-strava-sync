@@ -90,6 +90,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       }
       throw err;
     }
+    await repo.ensureUser(c.env.DB, state.userId);
     await repo.upsertStravaConnection(c.env.DB, {
       user_id: state.userId,
       athlete_id: exchanged.athleteId,
