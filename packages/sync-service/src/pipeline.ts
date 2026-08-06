@@ -22,9 +22,21 @@ import { StravaClient, StravaRateLimitedError, StravaUnauthorizedError } from ".
 import { parseAuroraTime, wallClockNow } from "./lib/time";
 
 export type SyncOutcome = {
-  status: "synced" | "no_strava" | "rate_limited" | "board_dead" | "strava_dead" | "not_connected";
+  status:
+    | "synced"
+    | "no_strava"
+    | "cache_filling"
+    | "rate_limited"
+    | "board_dead"
+    | "strava_dead"
+    | "not_connected";
   posted: number;
 };
+
+const CACHE_FILL_PAGES = 12;
+const CACHE_REFRESH_PAGES = 4;
+
+export class CacheFillInProgressError extends Error {}
 
 export async function syncOneUser(
   env: Env,
@@ -47,9 +59,12 @@ export async function syncOneUser(
   let ascents: Ascent[];
   let bids: Bid[];
   try {
+    await ensureBoardCache(env, aurora, boardConn.board, boardToken);
     ({ ascents, bids } = await aurora.syncUser(boardToken));
-    await ensureClimbData(env, aurora, boardConn.board, boardToken, ascents, bids);
   } catch (err) {
+    if (err instanceof CacheFillInProgressError) {
+      return { status: "cache_filling", posted: 0 };
+    }
     if (err instanceof BoardTokenRejectedError) {
       await repo.markBoardConnectionDead(env.DB, userId);
       await repo.recordSyncResult(env.DB, userId, "board token rejected");
@@ -159,46 +174,53 @@ async function persistRefreshedTokens(
   );
 }
 
-async function ensureClimbData(
+async function ensureBoardCache(
   env: Env,
   aurora: AuroraClient,
   board: string,
-  token: string,
-  ascents: Ascent[],
-  bids: Bid[]
+  token: string
 ): Promise<void> {
-  let missing = false;
-  for (const b of bids) {
-    if ((await repo.climbVGrade(env.DB, board, b.climb_uuid, b.angle)) === null) {
-      missing = true;
-      break;
-    }
-  }
-  if (!missing) {
-    for (const a of ascents) {
-      if ((await repo.climbName(env.DB, board, a.climb_uuid)) === null) {
-        missing = true;
-        break;
-      }
-    }
-  }
-  if (!missing) return;
-
+  const cacheComplete = (await repo.getBoardCursor(env.DB, board, "cache_complete")) === "1";
   const statsSince = await repo.getBoardCursor(env.DB, board, "climb_stats");
   const climbsSince = await repo.getBoardCursor(env.DB, board, "climbs");
-  const shared = await aurora.syncShared(token, statsSince, climbsSince);
-  await repo.putClimbData(env.DB, board, shared.stats, shared.climbs);
-  await repo.setBoardCursor(env.DB, board, "climb_stats", shared.statsCursor);
-  await repo.setBoardCursor(env.DB, board, "climbs", shared.climbsCursor);
+  const maxPages = cacheComplete ? CACHE_REFRESH_PAGES : CACHE_FILL_PAGES;
+
+  const result = await aurora.syncShared(
+    token,
+    statsSince,
+    climbsSince,
+    maxPages,
+    async (stats, climbs) => {
+      await repo.putClimbData(env.DB, board, stats, climbs);
+    }
+  );
+  await repo.setBoardCursor(env.DB, board, "climb_stats", result.statsCursor);
+  await repo.setBoardCursor(env.DB, board, "climbs", result.climbsCursor);
+
+  if (cacheComplete) return;
+  if (!result.complete) {
+    if (result.statsCursor === statsSince && result.climbsCursor === climbsSince) {
+      throw new Error(`board cache fill for ${board} made no progress`);
+    }
+    throw new CacheFillInProgressError(`board cache fill for ${board} continuing`);
+  }
+  await repo.setBoardCursor(env.DB, board, "cache_complete", "1");
 }
 
 async function toClimbs(env: Env, board: string, ascents: Ascent[], bids: Bid[]): Promise<Climb[]> {
+  const uuids = [...ascents.map((a) => a.climb_uuid), ...bids.map((b) => b.climb_uuid)];
+  const names = await repo.climbNamesFor(env.DB, board, uuids);
+  const grades = await repo.climbVGradesFor(
+    env.DB,
+    board,
+    bids.map((b) => b.climb_uuid)
+  );
   const out: Climb[] = [];
   for (const a of ascents) {
     out.push({
       time: parseAuroraTime(a.climbed_at),
       vGrade: v(a.difficulty) ?? -1,
-      name: (await repo.climbName(env.DB, board, a.climb_uuid)) ?? "",
+      name: names.get(a.climb_uuid) ?? "",
       kind: "send",
       tries: a.bid_count,
     });
@@ -206,8 +228,8 @@ async function toClimbs(env: Env, board: string, ascents: Ascent[], bids: Bid[])
   for (const b of bids) {
     out.push({
       time: parseAuroraTime(b.climbed_at),
-      vGrade: (await repo.climbVGrade(env.DB, board, b.climb_uuid, b.angle)) ?? -1,
-      name: (await repo.climbName(env.DB, board, b.climb_uuid)) ?? "",
+      vGrade: grades.get(`${b.climb_uuid}:${b.angle}`) ?? -1,
+      name: names.get(b.climb_uuid) ?? "",
       kind: "attempt",
       tries: b.bid_count,
     });

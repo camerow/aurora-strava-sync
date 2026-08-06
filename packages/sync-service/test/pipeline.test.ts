@@ -6,16 +6,22 @@ import { jsonResponse, makeFakeFetch, type FakeRoute, type RecordedCall } from "
 
 const FAR_FUTURE = 4102444800;
 
-async function seedUser(userId: string, boardUserId: number, athleteId: number): Promise<void> {
+async function seedUser(
+  userId: string,
+  boardUserId: number,
+  athleteId: number,
+  board = "tension"
+): Promise<void> {
   await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', ?)`)
     .bind(userId, new Date().toISOString())
     .run();
   await env.DB.prepare(
     `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
-     VALUES (?, 'tension', ?, ?, 'active', NULL, ?)`
+     VALUES (?, ?, ?, ?, 'active', NULL, ?)`
   )
     .bind(
       userId,
+      board,
       boardUserId,
       await encryptSecret("board-token", env.TOKEN_KEY),
       new Date().toISOString()
@@ -198,6 +204,48 @@ describe("syncOneUser", () => {
       .bind(userId)
       .first<{ status: string }>();
     expect(conn?.status).toBe("dead");
+  });
+
+  it("pauses a large cache fill and resumes on the next run", async () => {
+    await seedUser(userId, 47, 11, "kilter");
+    let sharedCalls = 0;
+    const routes: FakeRoute[] = [
+      auroraRoutes()[0]!,
+      {
+        match: (url, _m, body) => url.endsWith("/sync") && body.includes("climb_stats="),
+        respond: () => {
+          sharedCalls++;
+          return jsonResponse(200, {
+            climbs: [
+              { uuid: "c1", name: "Jug Life" },
+              { uuid: "c2", name: "Crimp Reaper" },
+              { uuid: "c3", name: "Mind Meld" },
+            ],
+            climb_stats: [{ climb_uuid: "c3", angle: 40, display_difficulty: 24.2 }],
+            shared_syncs: [
+              {
+                table_name: "climb_stats",
+                last_synchronized_at: `2026-08-0${sharedCalls} 00:00:00.000000`,
+              },
+              {
+                table_name: "climbs",
+                last_synchronized_at: `2026-08-0${sharedCalls} 00:00:00.000000`,
+              },
+            ],
+            _complete: sharedCalls > 12,
+          });
+        },
+      },
+      stravaCreateRoute(201, 4004),
+      stravaPatchRoute,
+    ];
+    const { fetchImpl } = makeFakeFetch(routes);
+
+    const first = await syncOneUser(env, userId, fetchImpl);
+    expect(first).toEqual({ status: "cache_filling", posted: 0 });
+
+    const second = await syncOneUser(env, userId, fetchImpl);
+    expect(second).toEqual({ status: "synced", posted: 1 });
   });
 
   it("computes and stores sessions without a Strava connection", async () => {

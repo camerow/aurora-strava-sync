@@ -255,32 +255,49 @@ export async function listSessions(
   return rows.results;
 }
 
-export async function climbName(
+export async function climbNamesFor(
   db: D1Database,
   board: string,
-  climbUuid: string
-): Promise<string | null> {
-  const row = await db
-    .prepare(`SELECT name FROM board_climb_names WHERE board = ? AND climb_uuid = ?`)
-    .bind(board, climbUuid)
-    .first<{ name: string }>();
-  return row?.name ?? null;
+  climbUuids: string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const unique = [...new Set(climbUuids)];
+  for (let i = 0; i < unique.length; i += 90) {
+    const chunk = unique.slice(i, i + 90);
+    const placeholders = chunk.map(() => "?").join(",");
+    const rows = await db
+      .prepare(
+        `SELECT climb_uuid, name FROM board_climb_names WHERE board = ? AND climb_uuid IN (${placeholders})`
+      )
+      .bind(board, ...chunk)
+      .all<{ climb_uuid: string; name: string }>();
+    for (const r of rows.results) out.set(r.climb_uuid, r.name);
+  }
+  return out;
 }
 
-export async function climbVGrade(
+export async function climbVGradesFor(
   db: D1Database,
   board: string,
-  climbUuid: string,
-  angle: number
-): Promise<number | null> {
-  const row = await db
-    .prepare(
-      `SELECT display_difficulty FROM board_climb_stats WHERE board = ? AND climb_uuid = ? AND angle = ?`
-    )
-    .bind(board, climbUuid, angle)
-    .first<{ display_difficulty: number }>();
-  if (row === null) return null;
-  return vFromDisplay(row.display_difficulty) ?? null;
+  climbUuids: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const unique = [...new Set(climbUuids)];
+  for (let i = 0; i < unique.length; i += 90) {
+    const chunk = unique.slice(i, i + 90);
+    const placeholders = chunk.map(() => "?").join(",");
+    const rows = await db
+      .prepare(
+        `SELECT climb_uuid, angle, display_difficulty FROM board_climb_stats WHERE board = ? AND climb_uuid IN (${placeholders})`
+      )
+      .bind(board, ...chunk)
+      .all<{ climb_uuid: string; angle: number; display_difficulty: number }>();
+    for (const r of rows.results) {
+      const grade = vFromDisplay(r.display_difficulty);
+      if (grade !== undefined) out.set(`${r.climb_uuid}:${r.angle}`, grade);
+    }
+  }
+  return out;
 }
 
 export async function putClimbData(

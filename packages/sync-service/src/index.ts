@@ -23,6 +23,11 @@ export default {
       const outcome = await syncOneUser(env, msg.body.userId);
       if (outcome.status === "rate_limited") {
         msg.retry({ delaySeconds: RATE_LIMIT_RETRY_SECONDS });
+      } else if (outcome.status === "cache_filling") {
+        // Continue the fill in a fresh invocation with a fresh subrequest
+        // budget; a new message avoids the max_retries cap.
+        await env.SYNC_QUEUE.send({ userId: msg.body.userId });
+        msg.ack();
       } else {
         msg.ack();
       }

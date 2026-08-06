@@ -95,9 +95,10 @@ export class AuroraClient {
   private async syncTables(
     token: string,
     cursors: Record<string, string>,
-    onPage: (p: SyncPage) => void
-  ): Promise<void> {
-    for (let page = 0; page < MAX_SYNC_PAGES; page++) {
+    onPage: (p: SyncPage) => Promise<void> | void,
+    maxPages: number = MAX_SYNC_PAGES
+  ): Promise<boolean> {
+    for (let page = 0; page < maxPages; page++) {
       const body = Object.entries(cursors)
         .map(([table, date]) => `${encodeURIComponent(table)}=${encodeURIComponent(date)}`)
         .join("&");
@@ -116,50 +117,52 @@ export class AuroraClient {
       }
       if (resp.status !== 200) throw new Error(`board sync failed: HTTP ${resp.status}`);
       const p = (await resp.json()) as SyncPage;
-      onPage(p);
+      await onPage(p);
       for (const m of [...(p.user_syncs ?? []), ...(p.shared_syncs ?? [])]) {
         if (m.table_name in cursors && m.last_synchronized_at !== "") {
           cursors[m.table_name] = m.last_synchronized_at;
         }
       }
-      if (p._complete === true) return;
+      if (p._complete === true) return true;
     }
-    throw new Error(`board sync did not complete within ${MAX_SYNC_PAGES} pages`);
+    return false;
   }
 
   async syncUser(token: string): Promise<{ ascents: Ascent[]; bids: Bid[] }> {
     const ascents: Ascent[] = [];
     const bids: Bid[] = [];
-    await this.syncTables(token, { ascents: EPOCH_SYNC_DATE, bids: EPOCH_SYNC_DATE }, (p) => {
-      ascents.push(...(p.ascents ?? []));
-      bids.push(...(p.bids ?? []));
-    });
+    const complete = await this.syncTables(
+      token,
+      { ascents: EPOCH_SYNC_DATE, bids: EPOCH_SYNC_DATE },
+      (p) => {
+        ascents.push(...(p.ascents ?? []));
+        bids.push(...(p.bids ?? []));
+      }
+    );
+    if (!complete)
+      throw new Error(`board user sync did not complete within ${MAX_SYNC_PAGES} pages`);
     return { ascents, bids };
   }
 
   async syncShared(
     token: string,
     statsSince: string,
-    climbsSince: string
-  ): Promise<{
-    stats: ClimbStat[];
-    climbs: ClimbRow[];
-    statsCursor: string;
-    climbsCursor: string;
-  }> {
+    climbsSince: string,
+    maxPages: number,
+    onPage: (stats: ClimbStat[], climbs: ClimbRow[]) => Promise<void>
+  ): Promise<{ complete: boolean; statsCursor: string; climbsCursor: string }> {
     const cursors: Record<string, string> = {
       climb_stats: statsSince === "" ? EPOCH_SYNC_DATE : statsSince,
       climbs: climbsSince === "" ? EPOCH_SYNC_DATE : climbsSince,
     };
-    const stats: ClimbStat[] = [];
-    const climbs: ClimbRow[] = [];
-    await this.syncTables(token, cursors, (p) => {
-      stats.push(...(p.climb_stats ?? []));
-      climbs.push(...(p.climbs ?? []));
-    });
+    const complete = await this.syncTables(
+      token,
+      cursors,
+      (p) => onPage(p.climb_stats ?? [], p.climbs ?? []),
+      maxPages
+    );
     return {
-      stats,
-      climbs,
+      complete,
       statsCursor: cursors["climb_stats"]!,
       climbsCursor: cursors["climbs"]!,
     };
