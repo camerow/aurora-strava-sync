@@ -8,3 +8,5 @@ dist/
 .dev.vars
 .env
 .wrangler/
+build/
+.react-router/

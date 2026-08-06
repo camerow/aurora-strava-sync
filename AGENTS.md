@@ -28,7 +28,7 @@ Trends/dashboards come after v1.
 | Sync trigger      | Cron Trigger + Cloudflare Queue fan-out (hourly), plus a manual sync-now endpoint                                                                                          | Aurora has no webhooks; polling is the only option. Queues give per-user isolation and retries. No Durable Objects until a proven need                 |
 | Board credentials | Never store passwords. Pass-through login at connect time; persist only the long-lived board API token, AES-GCM encrypted at rest (key in Worker secret, ciphertext in D1) | Same policy for Strava refresh tokens. "We never store your board password" must stay true                                                             |
 | Database          | Single shared D1 database, `user_id` keys everywhere. No per-user databases                                                                                                | Tiny per-user data; cross-user queries needed; one migration stream                                                                                    |
-| Climb cache       | Per-board shared cache (one per Aurora board), refreshed lazily via the cursor sync API when a user's sync references missing climbs                                                                         | Board data is per-board, not per-user. Polls Aurora once per board instead of once per user - protects us from being blocked on their private API      |
+| Climb cache       | Per-board shared cache (one per Aurora board), refreshed lazily via the cursor sync API when a user's sync references missing climbs                                       | Board data is per-board, not per-user. Polls Aurora once per board instead of once per user - protects us from being blocked on their private API      |
 | Derived data      | Computed sessions and effort results are persisted in D1 per user                                                                                                          | App reads (session list, future trends) never re-hit Aurora or recompute. Avoid external API calls wherever derived data suffices                      |
 | Auth              | Clerk, headless mode (their hooks, our components), magic links                                                                                                            | First-class Expo SDK; Workers-side JWT verification via `@clerk/backend`. The Clerk user ID (`sub`) is the user key in D1 - no parallel identity table |
 | Web framework     | React Router 7 (framework mode) on Cloudflare Workers, one app for marketing + dashboard                                                                                   | The path Cloudflare paves; SSR for SEO. Next-on-OpenNext adapter tax rejected; Expo web rejected for SEO                                               |
@@ -76,6 +76,13 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 - Wrangler environments `staging` and `production` for `sync-service` and `web`: separate D1 databases, separate Clerk instances, secrets via `wrangler secret`.
 - `staging` is the integration branch, `main` is production. All work branches off `staging` and PRs target `staging`. `main` is updated only via the `staging -> main` promotion PR, which triggers the production deploy and D1 migrations.
 - D1 migrations: `wrangler d1 migrations apply`, additive and forward-only. Never delete or rewrite prior migrations.
+- CI: `.github/workflows/deploy.yml` runs checks (types, tests, format, Go) then deploys both Workers - push to `staging` deploys the staging env, push to `main` deploys production. Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets.
+
+### Secrets
+
+- Source of truth is the **Doppler project `sendtally`** (configs `stg` and `prd`): `TOKEN_KEY`, `CLERK_SECRET_KEY`, `VITE_CLERK_PUBLISHABLE_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`.
+- Push to Workers with `doppler secrets download --no-file --format json --project sendtally --config <stg|prd> | ... | wrangler secret bulk --env <staging|production>` from `packages/sync-service`. Never paste secret values into files, commits, or chat.
+- The Strava credentials originate from the maker's Strava API app; Clerk keys from the Clerk dashboard (kept in 1Password, vault "Send Tally").
 
 ## The sync pipeline (hosted)
 
@@ -134,12 +141,14 @@ Design work (Claude-generated or otherwise) targets the token vocabulary; each p
 - Prefer `type` over `interface` unless declaration merging is needed.
 - Zod at every I/O boundary (API input, external API responses, queue messages).
 
-### React components
+### Code organization
 
-- One file per component, named after the file.
-- Component directories once a component needs helpers (hooks, transforms, constants alongside).
-- Tests co-located as `<Component>.test.tsx`.
-- `components/ui/*` (shadcn primitives) follow upstream kebab-case layout; leave that convention alone.
+- Features live in colocated directories: everything a feature needs (components, hooks, transforms, tests) sits together in one directory named for the feature.
+- Types exported for reuse go in a `types.ts` next to the file that uses them - not in a distant shared types module, and not inline in a component file when other files import them.
+- One component per file, named after the file.
+- Components generic to a feature (used by several of its screens/sections but nowhere else) live in a `components/` directory inside that feature.
+- When a component is used across many features, move it up to the highest relevant directory - the app-level `components/`, or `@sendtally/design` if it belongs to the design system.
+- Tests co-located as `<Component>.test.tsx` / `<module>.test.ts`.
 
 ### Formatting
 

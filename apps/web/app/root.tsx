@@ -17,7 +17,8 @@ export function Layout({ children }: { children: React.ReactNode }): React.React
       <body
         style={{
           margin: 0,
-          background: "var(--surface-page)",
+          background: "var(--bs-white)",
+          color: "var(--bs-gunmetal)",
           fontFamily: "var(--font-sans)",
           WebkitFontSmoothing: "antialiased",
         }}
