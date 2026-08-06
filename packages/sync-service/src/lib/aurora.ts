@@ -42,7 +42,12 @@ export type Bid = {
 
 export type ClimbRow = { uuid: string; name: string };
 
-export type ClimbStat = { climb_uuid: string; angle: number; display_difficulty: number };
+export type ClimbStat = {
+  climb_uuid: string;
+  angle: number;
+  display_difficulty?: number | null;
+  difficulty_average?: number | null;
+};
 
 export type BoardSession = { token: string; userId: number };
 

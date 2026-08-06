@@ -328,8 +328,9 @@ export async function putClimbData(
     `INSERT OR REPLACE INTO board_climb_names (board, climb_uuid, name) VALUES (?, ?, ?)`
   );
   for (const s of stats) {
-    if (s.climb_uuid == null || s.angle == null || s.display_difficulty == null) continue;
-    statements.push(putStat.bind(board, s.climb_uuid, s.angle, s.display_difficulty));
+    const difficulty = s.display_difficulty ?? s.difficulty_average;
+    if (s.climb_uuid == null || s.angle == null || difficulty == null) continue;
+    statements.push(putStat.bind(board, s.climb_uuid, s.angle, difficulty));
   }
   for (const c of climbs) {
     if (c.uuid == null) continue;
