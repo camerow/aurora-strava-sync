@@ -29,7 +29,7 @@ export type SyncOutcome = {
 export async function syncOneUser(
   env: Env,
   userId: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = (input, init) => fetch(input, init)
 ): Promise<SyncOutcome> {
   const user = await repo.getUser(env.DB, userId);
   const boardConn = await repo.getBoardConnection(env.DB, userId);

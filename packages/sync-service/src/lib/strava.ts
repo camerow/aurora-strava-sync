@@ -1,5 +1,7 @@
 import { toWallClockString } from "./time";
 
+const boundFetch: typeof fetch = (input, init) => fetch(input, init);
+
 export const STRAVA_API_BASE = "https://www.strava.com/api/v3";
 export const STRAVA_OAUTH_BASE = "https://www.strava.com/oauth";
 
@@ -70,7 +72,7 @@ async function exchange(
 export async function exchangeAuthCode(
   cfg: StravaAppConfig,
   code: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = boundFetch,
   oauthBase: string = STRAVA_OAUTH_BASE
 ): Promise<{ tokens: StravaTokens; athleteId: number }> {
   const out = await exchange(cfg, oauthBase, { code, grant_type: "authorization_code" }, fetchImpl);
@@ -91,7 +93,7 @@ export class StravaClient {
   constructor(
     private readonly cfg: StravaAppConfig,
     tokens: StravaTokens,
-    private readonly fetchImpl: typeof fetch = fetch,
+    private readonly fetchImpl: typeof fetch = boundFetch,
     private readonly apiBase: string = STRAVA_API_BASE,
     private readonly oauthBase: string = STRAVA_OAUTH_BASE
   ) {

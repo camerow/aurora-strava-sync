@@ -1,3 +1,5 @@
+const boundFetch: typeof fetch = (input, init) => fetch(input, init);
+
 const HOST_BASES: Record<string, string> = {
   aurora: "auroraboardapp",
   decoy: "decoyboardapp",
@@ -63,7 +65,7 @@ export class BoardTokenRejectedError extends Error {}
 export class AuroraClient {
   constructor(
     private readonly baseUrl: string,
-    private readonly fetchImpl: typeof fetch = fetch
+    private readonly fetchImpl: typeof fetch = boundFetch
   ) {}
 
   async login(username: string, password: string): Promise<BoardSession> {

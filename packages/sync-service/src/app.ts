@@ -26,7 +26,7 @@ const connectBoardBody = z.object({
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 
 export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars }> {
-  const fetchImpl = deps.fetchImpl ?? fetch;
+  const fetchImpl: typeof fetch = deps.fetchImpl ?? ((input, init) => fetch(input, init));
   const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
   app.get("/health", (c) => c.json({ ok: true }));
