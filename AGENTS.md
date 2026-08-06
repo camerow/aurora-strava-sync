@@ -51,7 +51,7 @@ sendtally/
 │   ├── core/            ported session/effort/grades logic - pure, no I/O, no platform deps
 │   ├── sync-service/    Hono Worker: API + cron + queue consumer + D1 schema/migrations
 │   ├── api-client/      typed hono/client wrapper consumed by mobile and web
-│   ├── design/          design tokens + shared Tailwind config
+│   ├── design/          design tokens (CSS variables) + React component library
 │   └── ui-native/       NativeWind component kit for mobile
 └── tools/
     └── cli-go/          the original Go CLI (go.mod lives here)
@@ -106,8 +106,8 @@ Invariants that must survive the port:
 
 Three layers; the tokens file is the contract between platforms.
 
-1. `@sendtally/design`: colors, spacing scale, type scale, radii as plain TS/CSS variables, consumed by one shared Tailwind config. Single theme, no light/dark.
-2. Web: Tailwind v4 + shadcn/ui components copied in and restyled from the tokens. The components are ours to edit. Clerk headless hooks get skinned with these.
+1. `@sendtally/design`: CSS-variable tokens (`styles.css` + `tokens/`) and a typed React component library (Logo, Button, Input, Badge, Label, Card, SpecRow, StatStrip, GradeBars, ActivityCard, RpeMeter, ClimbLog), both synced from the "Sendtally Design System" project on claude.ai/design via the DesignSync tool. That project is the design source of truth - read its `readme.md` (voice, contrast rules, iconography, layout) before designing anything new. Note: its internal copy still says "boardsync"; the code here is renamed to sendtally.
+2. Web: consumes `@sendtally/design` components directly (inline styles driven by the tokens - no Tailwind, no shadcn; the design system ships its own components). Clerk headless hooks get skinned with these.
 3. Native: NativeWind 4 + a small hand-rolled kit in `@sendtally/ui-native` (button, card, list row, stat tile, sheet, input, ...). No pre-built RN component library.
 
 `bg-primary` must mean the same color on both platforms.

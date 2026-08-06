@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sendtally-web",
+  "main": "workers/app.ts",
+  "compatibility_date": "2025-10-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "env": {
+    "staging": {
+      "routes": [{ "pattern": "staging.sendtally.com", "custom_domain": true }],
+    },
+    "production": {
+      "routes": [{ "pattern": "sendtally.com", "custom_domain": true }],
+    },
+  },
+}

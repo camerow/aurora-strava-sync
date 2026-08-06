@@ -1,0 +1,95 @@
+@import "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap";
+:root {
+  --bs-gunmetal: #403f4c;
+  --bs-gunmetal-deep: #35343f;
+  --bs-watermelon: #e84855;
+  --bs-watermelon-press: #d63a47;
+  --bs-watermelon-ink: #c4303d;
+  --bs-watermelon-ink-press: #a62633;
+  --bs-gold: #f9dc5c;
+  --bs-gold-hover: #fbe583;
+  --bs-azure: #3185fc;
+  --bs-azure-press: #1f6ad8;
+  --bs-azure-ink: #1b62ce;
+  --bs-azure-ink-press: #144ea6;
+  --bs-petal: #efbcd5;
+  --bs-white: #ffffff;
+  --surface-page: var(--bs-gunmetal);
+  --surface-card: var(--bs-white);
+  --surface-panel: var(--bs-gunmetal);
+  --surface-accent-pink: var(--bs-petal);
+  --surface-accent-gold: var(--bs-gold);
+  --text-on-dark: var(--bs-white);
+  --text-on-dark-secondary: rgba(239, 188, 213, 0.88);
+  --text-on-dark-muted: rgba(239, 188, 213, 0.8);
+  --text-on-dark-label: var(--bs-gold);
+  --text-on-light: var(--bs-gunmetal);
+  --text-on-light-secondary: rgba(64, 63, 76, 0.88);
+  --text-on-white-secondary: rgba(64, 63, 76, 0.72);
+  --text-label-accent: var(--bs-watermelon-ink);
+  --text-link: var(--bs-azure-ink);
+  --line-on-dark: rgba(239, 188, 213, 0.18);
+  --line-on-light: rgba(64, 63, 76, 0.1);
+  --line-on-light-soft: rgba(64, 63, 76, 0.08);
+  --data-bar: var(--bs-azure);
+  --data-bar-peak: var(--bs-watermelon);
+  --data-bar-empty: rgba(64, 63, 76, 0.14);
+}
+:root {
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --type-hero-size: 66px;
+  --type-hero-line: 0.98;
+  --type-hero-track: -0.035em;
+  --type-hero-weight: 800;
+  --type-section-size: 36px;
+  --type-section-line: 1.05;
+  --type-section-track: -0.03em;
+  --type-section-weight: 700;
+  --type-price-size: 52px;
+  --type-lead-size: 18px;
+  --type-lead-line: 1.55;
+  --type-body-size: 15px;
+  --type-body-line: 1.55;
+  --type-small-size: 14px;
+  --type-card-title-size: 19px;
+  --type-label-size: 11px;
+  --type-label-track: 0.08em;
+  --type-label-weight: 500;
+  --type-microlabel-size: 10px;
+  --type-stat-size: 17px;
+  --type-meta-size: 12px;
+}
+:root {
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 9px;
+  --space-4: 11px;
+  --space-5: 14px;
+  --space-6: 18px;
+  --space-7: 22px;
+  --space-8: 26px;
+  --space-9: 36px;
+  --space-10: 52px;
+  --space-11: 64px;
+  --space-12: 78px;
+  --page-gutter: 56px;
+  --page-max: 1440px;
+  --section-pad-y: 64px;
+  --card-pad: 26px;
+}
+:root {
+  --radius-sm: 6px;
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-card-lg: 16px;
+  --radius-panel: 20px;
+  --radius-pill: 20px;
+  --shadow-float: 0 24px 60px rgba(20, 19, 26, 0.4);
+  --shadow-none: none;
+  --focus-ring-azure: 0 0 0 3px rgba(49, 133, 252, 0.28);
+  --focus-ring-azure-strong: 0 0 0 3px rgba(49, 133, 252, 0.45);
+  --motion-fast: 0.12s ease-out;
+  --motion-base: 0.18s ease-out;
+}

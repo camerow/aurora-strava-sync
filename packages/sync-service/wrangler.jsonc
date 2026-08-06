@@ -27,7 +27,7 @@
         {
           "binding": "DB",
           "database_name": "sendtally-staging",
-          "database_id": "TODO-create-with-wrangler-d1-create",
+          "database_id": "f51cbd26-d1ac-4455-9fe1-f0c273bec4c2",
           "migrations_dir": "migrations",
         },
       ],
@@ -43,7 +43,7 @@
         {
           "binding": "DB",
           "database_name": "sendtally-production",
-          "database_id": "TODO-create-with-wrangler-d1-create",
+          "database_id": "3530133c-2f98-4054-9a95-9ae13d661a66",
           "migrations_dir": "migrations",
         },
       ],
