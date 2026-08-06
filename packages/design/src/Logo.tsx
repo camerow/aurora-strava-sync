@@ -61,7 +61,7 @@ export function Logo({
           fontWeight: 600,
           fontSize: Math.round(size * 0.59375),
           letterSpacing: "-0.02em",
-          color: onLight ? "var(--bs-gunmetal)" : "var(--bs-petal)",
+          color: onLight ? "var(--bs-gunmetal)" : "var(--bs-petal-tint)",
           lineHeight: 1,
         }}
       >

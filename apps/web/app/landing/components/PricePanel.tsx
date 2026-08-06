@@ -102,7 +102,7 @@ export function PricePanel(): React.ReactElement {
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: "rgba(239,188,213,0.85)",
+              color: "rgba(238,211,248,0.85)",
             }}
           >
             No password. No card.

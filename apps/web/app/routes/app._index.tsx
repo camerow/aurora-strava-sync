@@ -187,7 +187,7 @@ export default function Sessions(): React.ReactElement {
               fontWeight: 500,
               fontSize: 12,
               letterSpacing: "0.06em",
-              color: "rgba(239,188,213,0.88)",
+              color: "rgba(238,211,248,0.88)",
             }}
           >
             READING YOUR LOGBOOK - the first import can take a few minutes. This page refreshes
