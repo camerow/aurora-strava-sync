@@ -93,6 +93,16 @@ export async function syncOneUser(
       rpe: s.result.rpe,
       title: s.result.title,
       summary: s.result.summary,
+      climbs_json: JSON.stringify(
+        s.sess.climbs.map((c) => ({
+          time: c.time.toISOString(),
+          name: c.name,
+          vGrade: c.vGrade,
+          kind: c.kind,
+          tries: c.tries,
+          angle: c.angle ?? null,
+        }))
+      ),
     });
   }
 
@@ -243,6 +253,7 @@ async function toClimbs(env: Env, board: string, ascents: Ascent[], bids: Bid[])
       name: names.get(a.climb_uuid) ?? "",
       kind: "send",
       tries: a.bid_count,
+      angle: a.angle,
     });
   }
   for (const b of bids) {
@@ -252,6 +263,7 @@ async function toClimbs(env: Env, board: string, ascents: Ascent[], bids: Bid[])
       name: names.get(b.climb_uuid) ?? "",
       kind: "attempt",
       tries: b.bid_count,
+      angle: b.angle,
     });
   }
   return out;

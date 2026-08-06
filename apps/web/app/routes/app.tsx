@@ -12,7 +12,7 @@ export async function loader(args: LoaderFunctionArgs): Promise<null> {
 
 const NAV_ITEMS: Array<[string, string, boolean]> = [
   ["Sessions", "/app", true],
-  ["Trends", "/app/trends", false],
+  ["Trends", "/app/trends", true],
   ["Sync & accounts", "/app/settings", false],
 ];
 

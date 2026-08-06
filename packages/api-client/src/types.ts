@@ -11,6 +11,15 @@ export type ConnectionStatus = {
 
 export type StravaPostingMode = "off" | "new" | "all";
 
+export type SessionClimb = {
+  time: string;
+  name: string;
+  vGrade: number;
+  kind: "send" | "attempt";
+  tries: number;
+  angle: number | null;
+};
+
 export type SessionRow = {
   fingerprint: string;
   start_at: string;
@@ -22,6 +31,10 @@ export type SessionRow = {
   strava_activity_id: number | null;
   posted_at: string | null;
 };
+
+export type SessionDetail = SessionRow & { climbs: SessionClimb[] };
+
+export type SessionWithClimbs = SessionRow & { climbs: SessionClimb[] };
 
 export type ConnectBoardInput = {
   board: string;

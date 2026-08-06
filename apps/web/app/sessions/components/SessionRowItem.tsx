@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router";
 import type { SessionRow } from "@sendtally/api-client";
 
 function durationLabel(startAt: string, endAt: string): string {
@@ -40,15 +41,18 @@ export function SessionRowItem({
   const start = new Date(session.start_at);
   const badgeStyle = BADGE_STYLES[badge];
   return (
-    <div
+    <Link
+      to={`/app/sessions/${encodeURIComponent(session.fingerprint)}`}
       style={{
         display: "grid",
-        gridTemplateColumns: "72px 1.1fr 1.5fr auto",
+        gridTemplateColumns: "72px 1.1fr 1.5fr auto 14px",
         gap: 18,
         alignItems: "center",
         background: "#F7F6F3",
         borderRadius: "var(--radius-card)",
         padding: "16px 20px",
+        textDecoration: "none",
+        color: "var(--bs-gunmetal)",
       }}
     >
       <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -109,6 +113,16 @@ export function SessionRowItem({
       >
         {badgeStyle.label}
       </span>
-    </div>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontWeight: 600,
+          fontSize: 16,
+          color: "rgba(64,63,76,0.35)",
+        }}
+      >
+        ›
+      </span>
+    </Link>
   );
 }

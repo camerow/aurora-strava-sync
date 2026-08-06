@@ -193,6 +193,7 @@ export type ScoredSessionInput = {
   rpe: number;
   title: string;
   summary: string;
+  climbs_json: string;
 };
 
 export async function upsertScoredSession(
@@ -202,8 +203,8 @@ export async function upsertScoredSession(
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO sessions (user_id, fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, summary, strava_activity_id, posted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+      `INSERT INTO sessions (user_id, fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json, strava_activity_id, posted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
        ON CONFLICT(user_id, fingerprint) DO UPDATE SET
          start_at = excluded.start_at,
          end_at = excluded.end_at,
@@ -211,7 +212,8 @@ export async function upsertScoredSession(
          top_grade = excluded.top_grade,
          rpe = excluded.rpe,
          title = excluded.title,
-         summary = excluded.summary`
+         summary = excluded.summary,
+         climbs_json = excluded.climbs_json`
     )
     .bind(
       userId,
@@ -222,7 +224,8 @@ export async function upsertScoredSession(
       s.top_grade,
       s.rpe,
       s.title,
-      s.summary
+      s.summary,
+      s.climbs_json
     )
     .run();
 }
@@ -257,16 +260,31 @@ export async function postedSessionFingerprints(
 export async function listSessions(
   db: D1Database,
   userId: string,
-  limit: number
-): Promise<SessionRow[]> {
+  limit: number,
+  includeClimbs = false
+): Promise<Array<SessionRow & { climbs_json?: string | null }>> {
+  const cols = includeClimbs
+    ? "fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json"
+    : "fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at";
   const rows = await db
-    .prepare(
-      `SELECT fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at
-       FROM sessions WHERE user_id = ? ORDER BY start_at DESC LIMIT ?`
-    )
+    .prepare(`SELECT ${cols} FROM sessions WHERE user_id = ? ORDER BY start_at DESC LIMIT ?`)
     .bind(userId, limit)
-    .all<SessionRow>();
+    .all<SessionRow & { climbs_json?: string | null }>();
   return rows.results;
+}
+
+export async function getSession(
+  db: D1Database,
+  userId: string,
+  fingerprint: string
+): Promise<(SessionRow & { climbs_json: string | null }) | null> {
+  return db
+    .prepare(
+      `SELECT fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json
+       FROM sessions WHERE user_id = ? AND fingerprint = ?`
+    )
+    .bind(userId, fingerprint)
+    .first<SessionRow & { climbs_json: string | null }>();
 }
 
 export async function climbNamesFor(

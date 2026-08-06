@@ -1,5 +1,6 @@
+import { router } from "expo-router";
 import React from "react";
-import { ActivityIndicator, FlatList, RefreshControl, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { ConnectionStatus, SessionRow } from "@sendtally/api-client";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
@@ -156,7 +157,16 @@ export default function Sessions(): React.ReactElement {
           ) : null
         }
         renderItem={({ item }) => (
-          <SessionCard session={item} boardLabel={boardLabel} badge={badgeFor(item, status)} />
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/session/[fingerprint]",
+                params: { fingerprint: item.fingerprint, board: status?.board?.board ?? "" },
+              })
+            }
+          >
+            <SessionCard session={item} boardLabel={boardLabel} badge={badgeFor(item, status)} />
+          </Pressable>
         )}
       />
     </SafeAreaView>

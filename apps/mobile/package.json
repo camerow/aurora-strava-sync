@@ -18,6 +18,7 @@
     "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "@sendtally/api-client": "workspace:*",
     "@sendtally/design": "workspace:*",
+    "@sendtally/features": "workspace:*",
     "expo": "~54.0.0",
     "expo-auth-session": "~7.0.11",
     "expo-constants": "~18.0.9",
