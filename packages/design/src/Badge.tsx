@@ -7,7 +7,7 @@ const tones: Record<string, React.CSSProperties> = {
     background: "transparent",
   },
   azure: { color: "var(--bs-azure-ink)", border: "none", background: "rgba(49,133,252,0.12)" },
-  petal: { color: "var(--bs-gunmetal)", border: "none", background: "var(--bs-petal)" },
+  petal: { color: "var(--bs-gunmetal)", border: "none", background: "rgba(204,121,234,0.14)" },
 };
 
 export type BadgeProps = {

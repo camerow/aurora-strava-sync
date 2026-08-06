@@ -18,6 +18,7 @@
       "vars": {
         "API_URL": "https://api.sendtally.com",
         "CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuc2VuZHRhbGx5LmNvbSQ",
+        "GA_MEASUREMENT_ID": "G-88YV4KNVJL",
       },
     },
   },

@@ -32,14 +32,14 @@ export function ActivityCard({
             width: 40,
             height: 40,
             borderRadius: "50%",
-            background: "var(--bs-petal)",
+            background: "var(--bs-petal-ink)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontFamily: "var(--font-mono)",
             fontWeight: 600,
             fontSize: 14,
-            color: "var(--bs-gunmetal)",
+            color: "var(--bs-white)",
           }}
         >
           {initials}
