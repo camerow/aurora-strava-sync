@@ -1,3 +1,10 @@
 .superpowers/
-.prototools
-aurora-strava-sync
+/aurora-strava-sync
+/tools/cli-go/aurora-strava-sync
+
+node_modules/
+.turbo/
+dist/
+.dev.vars
+.env
+.wrangler/
