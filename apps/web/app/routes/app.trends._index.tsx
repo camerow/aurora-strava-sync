@@ -50,7 +50,14 @@ export default function TrendsRoute(): React.ReactElement {
         </span>
       )}
       {state.status === "ready" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 24 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: 18,
+            marginTop: 24,
+          }}
+        >
           {state.data.tiles.map((tile) => (
             <Link
               key={tile.metric}

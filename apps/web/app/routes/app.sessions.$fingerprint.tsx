@@ -160,7 +160,7 @@ export default function SessionDetailRoute(): React.ReactElement {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${vm.stats.length}, 1fr)`,
+          gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
           gap: 1,
           background: "var(--line-on-light)",
           borderRadius: 12,
@@ -288,112 +288,116 @@ export default function SessionDetailRoute(): React.ReactElement {
         </select>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: GRID,
-          gap: 12,
-          padding: "12px 4px 9px",
-          alignItems: "center",
-        }}
-      >
-        {["#", "PROBLEM", "GRADE", "ANGLE", "BURNS", "REST", "RESULT"].map((h) => (
-          <span key={h} style={monoLabel}>
-            {h}
-          </span>
-        ))}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {climbs.map((c) => {
-          const badge = RESULT_BADGES[c.result]!;
-          return (
-            <div
-              key={c.n}
-              style={{
-                display: "grid",
-                gridTemplateColumns: GRID,
-                gap: 12,
-                padding: "12px 4px",
-                alignItems: "center",
-                borderTop: "1px solid var(--line-on-light)",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "rgba(64,63,76,0.5)",
-                }}
-              >
-                {c.n}
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 640 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: GRID,
+              gap: 12,
+              padding: "12px 4px 9px",
+              alignItems: "center",
+            }}
+          >
+            {["#", "PROBLEM", "GRADE", "ANGLE", "BURNS", "REST", "RESULT"].map((h) => (
+              <span key={h} style={monoLabel}>
+                {h}
               </span>
-              <span
-                style={{
-                  fontWeight: 500,
-                  fontSize: 15,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {c.name}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  color: c.isTopSend ? "var(--text-label-accent)" : "var(--bs-gunmetal)",
-                }}
-              >
-                {c.gradeLabel}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "rgba(64,63,76,0.72)",
-                }}
-              >
-                {c.angleLabel}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "rgba(64,63,76,0.72)",
-                }}
-              >
-                {c.burns}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "rgba(64,63,76,0.72)",
-                }}
-              >
-                {c.restLabel}
-              </span>
-              <span
-                style={{
-                  justifySelf: "start",
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 500,
-                  fontSize: 10,
-                  letterSpacing: "0.08em",
-                  borderRadius: "var(--radius-pill)",
-                  padding: "3px 9px",
-                  background: badge.bg,
-                  border: `1px solid ${badge.border}`,
-                  color: badge.color,
-                }}
-              >
-                {badge.label}
-              </span>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {climbs.map((c) => {
+              const badge = RESULT_BADGES[c.result]!;
+              return (
+                <div
+                  key={c.n}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: GRID,
+                    gap: 12,
+                    padding: "12px 4px",
+                    alignItems: "center",
+                    borderTop: "1px solid var(--line-on-light)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      color: "rgba(64,63,76,0.5)",
+                    }}
+                  >
+                    {c.n}
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: 500,
+                      fontSize: 15,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {c.name}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      color: c.isTopSend ? "var(--text-label-accent)" : "var(--bs-gunmetal)",
+                    }}
+                  >
+                    {c.gradeLabel}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      color: "rgba(64,63,76,0.72)",
+                    }}
+                  >
+                    {c.angleLabel}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      color: "rgba(64,63,76,0.72)",
+                    }}
+                  >
+                    {c.burns}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      color: "rgba(64,63,76,0.72)",
+                    }}
+                  >
+                    {c.restLabel}
+                  </span>
+                  <span
+                    style={{
+                      justifySelf: "start",
+                      fontFamily: "var(--font-mono)",
+                      fontWeight: 500,
+                      fontSize: 10,
+                      letterSpacing: "0.08em",
+                      borderRadius: "var(--radius-pill)",
+                      padding: "3px 9px",
+                      background: badge.bg,
+                      border: `1px solid ${badge.border}`,
+                      color: badge.color,
+                    }}
+                  >
+                    {badge.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
       <div
         style={{

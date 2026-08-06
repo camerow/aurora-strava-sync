@@ -10,7 +10,7 @@ export function PricePanel(): React.ReactElement {
           borderRadius: "var(--radius-panel)",
           padding: 52,
           display: "grid",
-          gridTemplateColumns: "1.15fr .85fr",
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
           gap: 48,
           alignItems: "center",
         }}
