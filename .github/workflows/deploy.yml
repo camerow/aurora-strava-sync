@@ -62,9 +62,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @sendtally/web build
+        env:
+          CLOUDFLARE_ENV: ${{ env.DEPLOY_ENV }}
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/web
-          command: deploy --env ${{ env.DEPLOY_ENV }}
+          command: deploy

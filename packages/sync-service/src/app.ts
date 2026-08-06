@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import type { Env } from "./bindings";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
@@ -61,13 +62,20 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     if (code === undefined || stateRaw === undefined) {
       return c.json({ error: "missing code or state" }, 400);
     }
-    let state: { userId: string; exp: number };
+    let state: { userId: string; nonce: string; exp: number };
     try {
       state = JSON.parse(await decryptSecret(stateRaw, c.env.TOKEN_KEY)) as typeof state;
     } catch {
       return c.json({ error: "bad state" }, 400);
     }
     if (Date.now() > state.exp) return c.json({ error: "state expired" }, 400);
+    // Soft browser binding: the web flow carries the nonce cookie and must match;
+    // the mobile flow authorizes in the system browser, which never saw the cookie.
+    const cookieNonce = getCookie(c, "st_oauth");
+    if (cookieNonce !== undefined && cookieNonce !== state.nonce) {
+      return c.json({ error: "bad state" }, 400);
+    }
+    deleteCookie(c, "st_oauth", { path: "/connect/strava" });
 
     let exchanged;
     try {
@@ -131,8 +139,16 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
 
   app.get("/v1/connect/strava/start", async (c) => {
     const userId = c.get("userId");
+    const nonce = crypto.randomUUID();
+    setCookie(c, "st_oauth", nonce, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+      maxAge: OAUTH_STATE_TTL_MS / 1000,
+      path: "/connect/strava",
+    });
     const state = await encryptSecret(
-      JSON.stringify({ userId, exp: Date.now() + OAUTH_STATE_TTL_MS }),
+      JSON.stringify({ userId, nonce, exp: Date.now() + OAUTH_STATE_TTL_MS }),
       c.env.TOKEN_KEY
     );
     const redirectUri = new URL("/connect/strava/callback", c.req.url).toString();

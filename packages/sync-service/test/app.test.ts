@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app";
 import type { Env } from "../src/bindings";
-import { decryptSecret } from "../src/lib/crypto";
+import { decryptSecret, encryptSecret } from "../src/lib/crypto";
 import { jsonResponse, makeFakeFetch } from "./fakes";
 
 function testApp(fetchImpl?: typeof fetch) {
@@ -133,6 +133,51 @@ describe("app", () => {
       `SELECT status FROM strava_connections WHERE athlete_id = 555`
     ).first<{ status: string }>();
     expect(conn?.status).toBe("dead");
+  });
+
+  it("binds the OAuth callback to the browser nonce when the cookie is present", async () => {
+    await env.DB.prepare(
+      `INSERT INTO users (id, timezone, created_at) VALUES ('user_oauth', 'UTC', '')`
+    ).run();
+    const state = await encryptSecret(
+      JSON.stringify({ userId: "user_oauth", nonce: "good-nonce", exp: Date.now() + 60_000 }),
+      env.TOKEN_KEY
+    );
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.includes("/oauth/token"),
+        respond: () =>
+          jsonResponse(200, {
+            access_token: "at",
+            refresh_token: "rt",
+            expires_at: 4102444800,
+            athlete: { id: 999 },
+          }),
+      },
+    ]);
+    const path = `/connect/strava/callback?code=x&state=${encodeURIComponent(state)}`;
+
+    const mismatched = await testApp(fetchImpl).request(
+      path,
+      { headers: { Cookie: "st_oauth=evil-nonce" } },
+      env
+    );
+    expect(mismatched.status).toBe(400);
+
+    const matched = await testApp(fetchImpl).request(
+      path,
+      { headers: { Cookie: "st_oauth=good-nonce" } },
+      env
+    );
+    expect(matched.status).toBe(302);
+
+    const noCookie = await testApp(fetchImpl).request(path, {}, env);
+    expect(noCookie.status).toBe(302);
+
+    const conn = await env.DB.prepare(
+      `SELECT athlete_id FROM strava_connections WHERE user_id = 'user_oauth'`
+    ).first<{ athlete_id: number }>();
+    expect(conn?.athlete_id).toBe(999);
   });
 
   it("enqueues a sync job on sync-now", async () => {
