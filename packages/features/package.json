@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./session-detail": "./src/session-detail/index.ts",
-    "./trends": "./src/trends/index.ts"
+    "./trends": "./src/trends/index.ts",
+    "./sync-settings": "./src/sync-settings/index.ts"
   },
   "scripts": {
     "test": "vitest run",

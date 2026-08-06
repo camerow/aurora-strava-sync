@@ -13,7 +13,7 @@ export async function loader(args: LoaderFunctionArgs): Promise<null> {
 const NAV_ITEMS: Array<[string, string, boolean]> = [
   ["Sessions", "/app", true],
   ["Trends", "/app/trends", true],
-  ["Sync & accounts", "/app/settings", false],
+  ["Sync & accounts", "/app/settings", true],
 ];
 
 export default function AppLayout(): React.ReactElement {

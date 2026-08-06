@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { ConnectionStatus } from "@sendtally/api-client";
+import { useSyncSettings } from "@sendtally/features/sync-settings";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 import { Logo } from "../../components/Logo";
 import { useApi } from "../../lib/api";
@@ -45,46 +45,10 @@ export default function Sync(): React.ReactElement {
   const clerk = useClerk();
   const { user } = useUser();
   const router = useRouter();
-  const [status, setStatus] = React.useState<ConnectionStatus | null>(null);
-  const [syncState, setSyncState] = React.useState<"idle" | "queued">("idle");
-  const [message, setMessage] = React.useState<string | null>(null);
+  const { state, syncRequested, syncSessions, postingBusy, setPosting, message } =
+    useSyncSettings(api);
 
-  const load = React.useCallback(async (): Promise<void> => {
-    try {
-      setStatus(await api.status());
-    } catch {
-      setMessage("Could not reach sendtally.");
-    }
-  }, [api]);
-
-  React.useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function syncNow(): Promise<void> {
-    setSyncState("queued");
-    setMessage(null);
-    try {
-      await api.syncNow();
-      setMessage("Sync queued - new sessions land in about a minute.");
-    } catch {
-      setMessage("Could not queue a sync. Try again.");
-    }
-    setTimeout(() => {
-      setSyncState("idle");
-      void load();
-    }, 6000);
-  }
-
-  async function setPosting(mode: "off" | "new" | "all"): Promise<void> {
-    try {
-      await api.setStravaPosting(mode);
-      await load();
-    } catch {
-      setMessage("Could not update Strava posting.");
-    }
-  }
-
+  const status = state.status === "ready" ? state.data : null;
   const boardName = status?.board?.board;
   const postingOn = status?.strava?.status === "active" && status.strava.postingEnabled;
   const lastSync = status?.sync?.lastSyncedAt;
@@ -157,8 +121,8 @@ export default function Sync(): React.ReactElement {
         <SectionCard>
           <SectionLabel>MANUAL SYNC</SectionLabel>
           <Pressable
-            onPress={() => void syncNow()}
-            disabled={syncState === "queued"}
+            onPress={() => void syncSessions()}
+            disabled={syncRequested}
             style={{
               backgroundColor: colors.azureInk,
               borderRadius: radius.control,
@@ -166,11 +130,11 @@ export default function Sync(): React.ReactElement {
               minHeight: 48,
               alignItems: "center",
               justifyContent: "center",
-              opacity: syncState === "queued" ? 0.45 : 1,
+              opacity: syncRequested ? 0.45 : 1,
             }}
           >
             <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 15, color: colors.white }}>
-              {syncState === "queued" ? "Syncing…" : "Sync now"}
+              {syncRequested ? "Syncing…" : "Sync sessions"}
             </Text>
           </Pressable>
           {message !== null && (
@@ -219,6 +183,7 @@ export default function Sync(): React.ReactElement {
                 {postingOn ? (
                   <Pressable
                     onPress={() => void setPosting("off")}
+                    disabled={postingBusy}
                     style={{ minHeight: 44, justifyContent: "center" }}
                   >
                     <Text
@@ -237,6 +202,7 @@ export default function Sync(): React.ReactElement {
                   <>
                     <Pressable
                       onPress={() => void setPosting("new")}
+                      disabled={postingBusy}
                       style={{
                         backgroundColor: colors.azureInk,
                         borderRadius: radius.control,
@@ -257,6 +223,7 @@ export default function Sync(): React.ReactElement {
                     </Pressable>
                     <Pressable
                       onPress={() => void setPosting("all")}
+                      disabled={postingBusy}
                       style={{
                         backgroundColor: colors.watermelonInk,
                         borderRadius: radius.control,

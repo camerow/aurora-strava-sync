@@ -154,7 +154,7 @@ export default function Sessions(): React.ReactElement {
             opacity: syncRequested ? 0.45 : 1,
           }}
         >
-          {syncRequested ? "Sync queued…" : "Sync now"}
+          {syncRequested ? "Sync queued…" : "Sync sessions"}
         </button>
       </div>
       {importing && (
@@ -281,7 +281,7 @@ export default function Sessions(): React.ReactElement {
           }}
         >
           No sessions yet. Climb, log it in the board app, and it shows up here within a couple of
-          hours - or hit Sync now.
+          hours - or hit Sync sessions.
         </div>
       )}
     </div>
