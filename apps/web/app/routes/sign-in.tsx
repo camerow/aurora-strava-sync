@@ -2,6 +2,7 @@ import { useClerk } from "@clerk/react-router";
 import { isClerkAPIResponseError } from "@clerk/react-router/errors";
 import React from "react";
 import { useNavigate } from "react-router";
+import type { EmailCodeFactor } from "@clerk/types";
 import { AuthShell, StepBody, StepCard, StepTitle } from "../auth/components/AuthShell";
 
 export function meta(): Array<Record<string, string>> {
@@ -45,7 +46,13 @@ const stepLabel: React.CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontWeight: 500,
   fontSize: 11,
-  letterSpacing: "0.1em",
+  letterSpacing: "0.08em",
+  color: "var(--text-label-accent)",
+};
+
+const errorText: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 12,
   color: "var(--text-label-accent)",
 };
 
@@ -54,18 +61,21 @@ function clerkErrorMessage(err: unknown): string {
     const first = err.errors[0];
     if (first !== undefined) return first.longMessage ?? first.message;
   }
-  return "Could not send the link. Check the address and try again.";
+  return "Something went wrong. Try again.";
 }
+
+type Phase = { name: "email" } | { name: "code"; mode: "sign-in" | "sign-up" };
 
 export default function SignIn(): React.ReactElement {
   const clerk = useClerk();
   const navigate = useNavigate();
   const [email, setEmail] = React.useState("");
-  const [sent, setSent] = React.useState(false);
+  const [code, setCode] = React.useState("");
+  const [phase, setPhase] = React.useState<Phase>({ name: "email" });
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
-  async function sendLink(): Promise<void> {
+  async function sendCode(): Promise<void> {
     if (!clerk.loaded || clerk.client === undefined) return;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       setError("That doesn't look like an email address.");
@@ -73,75 +83,134 @@ export default function SignIn(): React.ReactElement {
     }
     setError(null);
     setBusy(true);
-    const redirectUrl = `${window.location.origin}/sign-in/verify`;
     try {
       const signIn = await clerk.client.signIn.create({ identifier: email });
-      const factor = signIn.supportedFirstFactors?.find((f) => f.strategy === "email_link");
-      if (factor === undefined || !("emailAddressId" in factor)) {
-        setError("Email link sign-in is not enabled for this account.");
+      const factor = signIn.supportedFirstFactors?.find(
+        (f): f is EmailCodeFactor => f.strategy === "email_code"
+      );
+      if (factor === undefined) {
+        setError("Email code sign-in is not enabled for this account.");
         setBusy(false);
         return;
       }
-      setSent(true);
-      const { startEmailLinkFlow } = signIn.createEmailLinkFlow();
-      const result = await startEmailLinkFlow({
+      await signIn.prepareFirstFactor({
+        strategy: "email_code",
         emailAddressId: factor.emailAddressId,
-        redirectUrl,
       });
-      if (result.status === "complete" && result.createdSessionId !== null) {
-        await clerk.setActive({ session: result.createdSessionId });
-        await navigate("/app");
-      }
+      setPhase({ name: "code", mode: "sign-in" });
     } catch (signInErr) {
       const identifierNotFound =
         isClerkAPIResponseError(signInErr) &&
         signInErr.errors.some((e) => e.code === "form_identifier_not_found");
       if (!identifierNotFound) {
-        setSent(false);
         setError(clerkErrorMessage(signInErr));
         setBusy(false);
         return;
       }
       try {
         const signUp = await clerk.client.signUp.create({ emailAddress: email });
-        setSent(true);
-        const { startEmailLinkFlow } = signUp.createEmailLinkFlow();
-        const result = await startEmailLinkFlow({ redirectUrl });
-        if (result.status === "complete" && result.createdSessionId !== null) {
-          await clerk.setActive({ session: result.createdSessionId });
-          await navigate("/app");
-        }
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        setPhase({ name: "code", mode: "sign-up" });
       } catch (signUpErr) {
-        setSent(false);
         setError(clerkErrorMessage(signUpErr));
       }
     }
     setBusy(false);
   }
 
-  if (sent) {
+  async function verifyCode(): Promise<void> {
+    if (!clerk.loaded || clerk.client === undefined || phase.name !== "code") return;
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError("Enter the six-digit code from the email.");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      if (phase.mode === "sign-in") {
+        const result = await clerk.client.signIn.attemptFirstFactor({
+          strategy: "email_code",
+          code: code.trim(),
+        });
+        if (result.status === "complete" && result.createdSessionId !== null) {
+          await clerk.setActive({ session: result.createdSessionId });
+          await navigate("/app");
+          return;
+        }
+      } else {
+        const result = await clerk.client.signUp.attemptEmailAddressVerification({
+          code: code.trim(),
+        });
+        if (result.status === "complete" && result.createdSessionId !== null) {
+          await clerk.setActive({ session: result.createdSessionId });
+          await navigate("/app");
+          return;
+        }
+      }
+      setError("That code didn't verify. Try again or resend.");
+    } catch (err) {
+      setError(clerkErrorMessage(err));
+    }
+    setBusy(false);
+  }
+
+  if (phase.name === "code") {
     return (
       <AuthShell>
-        <div
-          style={{ width: "min(480px, 100%)", display: "flex", flexDirection: "column", gap: 18 }}
-        >
-          <span style={stepLabel}>STEP 1 OF 4 · ACCOUNT</span>
+        <StepCard step="STEP 1 OF 4 · ACCOUNT">
           <StepTitle>Check your inbox.</StepTitle>
           <StepBody>
-            We sent a sign-in link to{" "}
-            <span style={{ color: "var(--bs-gunmetal)", fontWeight: 600 }}>{email}</span>. Open it
-            on any device - this page signs in by itself once the link is clicked. It works once and
-            expires quickly.
+            We sent a six-digit code to{" "}
+            <span style={{ color: "var(--bs-gunmetal)", fontWeight: 600 }}>{email}</span>. Enter it
+            here to {phase.mode === "sign-up" ? "create your account" : "sign in"}.
           </StepBody>
-          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-            <button onClick={() => setSent(false)} style={linkButton}>
-              Use a different email
-            </button>
-            <button onClick={() => void sendLink()} style={linkButton}>
-              Resend
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <label htmlFor="bs-code" style={stepLabel}>
+              CODE
+            </label>
+            <input
+              id="bs-code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void verifyCode();
+              }}
+              style={{ ...inputStyle, fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+            />
+            {error !== null && <span style={errorText}>{error}</span>}
+            <button
+              onClick={() => void verifyCode()}
+              disabled={busy}
+              style={{ ...azureButton, opacity: busy ? 0.45 : 1 }}
+            >
+              {phase.mode === "sign-up" ? "Create account" : "Sign in"}
             </button>
           </div>
-        </div>
+          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+            <button
+              onClick={() => {
+                setPhase({ name: "email" });
+                setCode("");
+                setError(null);
+              }}
+              style={linkButton}
+            >
+              Use a different email
+            </button>
+            <button onClick={() => void sendCode()} style={linkButton}>
+              Resend code
+            </button>
+          </div>
+          <span
+            style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "rgba(64,63,76,0.58)" }}
+          >
+            The code works once and expires quickly.
+          </span>
+        </StepCard>
       </AuthShell>
     );
   }
@@ -151,11 +220,11 @@ export default function SignIn(): React.ReactElement {
       <StepCard step="STEP 1 OF 4 · ACCOUNT">
         <StepTitle>Sign in or create an account.</StepTitle>
         <StepBody>
-          No password. Enter your email and we send a one-time sign-in link. New email, new account
-          - same thing.
+          No password. Enter your email and we send a one-time code. New email, new account - same
+          thing.
         </StepBody>
         <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-          <label htmlFor="bs-email" style={{ ...stepLabel, letterSpacing: "0.08em" }}>
+          <label htmlFor="bs-email" style={stepLabel}>
             EMAIL
           </label>
           <input
@@ -165,34 +234,24 @@ export default function SignIn(): React.ReactElement {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void sendLink();
+              if (e.key === "Enter") void sendCode();
             }}
             style={inputStyle}
           />
-          {error !== null && (
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                color: "var(--text-label-accent)",
-              }}
-            >
-              {error}
-            </span>
-          )}
+          {error !== null && <span style={errorText}>{error}</span>}
           <button
-            onClick={() => void sendLink()}
+            onClick={() => void sendCode()}
             disabled={busy}
             style={{ ...azureButton, opacity: busy ? 0.45 : 1 }}
           >
-            Email me a sign-in link
+            Email me a code
           </button>
           <div id="clerk-captcha" />
         </div>
         <span
           style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "rgba(64,63,76,0.58)" }}
         >
-          The link works once and expires quickly.
+          The code works once and expires quickly.
         </span>
       </StepCard>
     </AuthShell>
