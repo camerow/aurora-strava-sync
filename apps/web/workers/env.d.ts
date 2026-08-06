@@ -1,13 +1,14 @@
 declare global {
-  type Env = Record<string, never>;
+  type Env = {
+    CLERK_PUBLISHABLE_KEY: string;
+    CLERK_SECRET_KEY: string;
+    API_URL: string;
+  };
 }
 
 declare module "react-router" {
-  interface AppLoadContext {
-    cloudflare: {
-      env: Env;
-      ctx: ExecutionContext;
-    };
+  interface Future {
+    v8_middleware: true;
   }
 }
 
