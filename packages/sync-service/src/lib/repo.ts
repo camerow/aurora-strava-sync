@@ -327,9 +327,14 @@ export async function putClimbData(
   const putName = db.prepare(
     `INSERT OR REPLACE INTO board_climb_names (board, climb_uuid, name) VALUES (?, ?, ?)`
   );
-  for (const s of stats)
+  for (const s of stats) {
+    if (s.climb_uuid == null || s.angle == null || s.display_difficulty == null) continue;
     statements.push(putStat.bind(board, s.climb_uuid, s.angle, s.display_difficulty));
-  for (const c of climbs) statements.push(putName.bind(board, c.uuid, c.name));
+  }
+  for (const c of climbs) {
+    if (c.uuid == null) continue;
+    statements.push(putName.bind(board, c.uuid, c.name ?? ""));
+  }
   const BATCH = 100;
   for (let i = 0; i < statements.length; i += BATCH) {
     await db.batch(statements.slice(i, i + BATCH));

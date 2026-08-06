@@ -83,7 +83,7 @@ function auroraRoutes(): FakeRoute[] {
         }),
     },
     {
-      match: (url, _m, body) => url.endsWith("/sync") && body.includes("climb_stats="),
+      match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
       respond: () =>
         jsonResponse(200, {
           climbs: [
@@ -212,7 +212,7 @@ describe("syncOneUser", () => {
     const routes: FakeRoute[] = [
       auroraRoutes()[0]!,
       {
-        match: (url, _m, body) => url.endsWith("/sync") && body.includes("climb_stats="),
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
         respond: () => {
           sharedCalls++;
           return jsonResponse(200, {

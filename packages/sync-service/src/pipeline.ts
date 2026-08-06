@@ -171,37 +171,60 @@ async function persistRefreshedTokens(
   );
 }
 
+async function fillTable(
+  env: Env,
+  aurora: AuroraClient,
+  board: string,
+  token: string,
+  table: "climbs" | "climb_stats"
+): Promise<void> {
+  const doneKey = `${table}_complete`;
+  if ((await repo.getBoardCursor(env.DB, board, doneKey)) === "1") return;
+  const since = await repo.getBoardCursor(env.DB, board, table);
+  const result = await aurora.syncTable(
+    token,
+    table,
+    since,
+    CACHE_FILL_PAGES,
+    async (stats, climbs) => {
+      await repo.putClimbData(env.DB, board, stats, climbs);
+    }
+  );
+  await repo.setBoardCursor(env.DB, board, table, result.cursor);
+  if (!result.complete) {
+    if (result.cursor === since) {
+      throw new Error(`board cache fill for ${board}/${table} made no progress`);
+    }
+    throw new CacheFillInProgressError(`board cache fill for ${board}/${table} continuing`);
+  }
+  await repo.setBoardCursor(env.DB, board, doneKey, "1");
+}
+
 async function ensureBoardCache(
   env: Env,
   aurora: AuroraClient,
   board: string,
   token: string
 ): Promise<void> {
-  const cacheComplete = (await repo.getBoardCursor(env.DB, board, "cache_complete")) === "1";
+  if ((await repo.getBoardCursor(env.DB, board, "cache_complete")) !== "1") {
+    await fillTable(env, aurora, board, token, "climbs");
+    await fillTable(env, aurora, board, token, "climb_stats");
+    await repo.setBoardCursor(env.DB, board, "cache_complete", "1");
+    return;
+  }
   const statsSince = await repo.getBoardCursor(env.DB, board, "climb_stats");
   const climbsSince = await repo.getBoardCursor(env.DB, board, "climbs");
-  const maxPages = cacheComplete ? CACHE_REFRESH_PAGES : CACHE_FILL_PAGES;
-
   const result = await aurora.syncShared(
     token,
     statsSince,
     climbsSince,
-    maxPages,
+    CACHE_REFRESH_PAGES,
     async (stats, climbs) => {
       await repo.putClimbData(env.DB, board, stats, climbs);
     }
   );
   await repo.setBoardCursor(env.DB, board, "climb_stats", result.statsCursor);
   await repo.setBoardCursor(env.DB, board, "climbs", result.climbsCursor);
-
-  if (cacheComplete) return;
-  if (!result.complete) {
-    if (result.statsCursor === statsSince && result.climbsCursor === climbsSince) {
-      throw new Error(`board cache fill for ${board} made no progress`);
-    }
-    throw new CacheFillInProgressError(`board cache fill for ${board} continuing`);
-  }
-  await repo.setBoardCursor(env.DB, board, "cache_complete", "1");
 }
 
 async function toClimbs(env: Env, board: string, ascents: Ascent[], bids: Bid[]): Promise<Climb[]> {

@@ -1,0 +1,43 @@
+export const colors = {
+  gunmetal: "#403F4C",
+  gunmetalDeep: "#35343F",
+  watermelon: "#E84855",
+  watermelonPress: "#D63A47",
+  watermelonInk: "#C4303D",
+  watermelonInkPress: "#A62633",
+  gold: "#F9DC5C",
+  goldHover: "#FBE583",
+  azure: "#3185FC",
+  azurePress: "#1F6AD8",
+  azureInk: "#1B62CE",
+  azureInkPress: "#144EA6",
+  petal: "#EFBCD5",
+  white: "#FFFFFF",
+  surfaceSoft: "#F7F6F3",
+  textSecondary: "rgba(64,63,76,0.72)",
+  textMuted: "rgba(64,63,76,0.55)",
+  textFaint: "rgba(64,63,76,0.45)",
+  lineOnLight: "rgba(64,63,76,0.1)",
+  lineOnLightSoft: "rgba(64,63,76,0.08)",
+  dataBarEmpty: "rgba(64,63,76,0.14)",
+} as const;
+
+export const radius = {
+  sm: 6,
+  control: 10,
+  card: 14,
+  cardLg: 16,
+  panel: 20,
+  pill: 20,
+} as const;
+
+export const fonts = {
+  display: "BricolageGrotesque_700Bold",
+  displayHeavy: "BricolageGrotesque_800ExtraBold",
+  sans: "IBMPlexSans_400Regular",
+  sansMedium: "IBMPlexSans_500Medium",
+  sansSemiBold: "IBMPlexSans_600SemiBold",
+  mono: "IBMPlexMono_400Regular",
+  monoMedium: "IBMPlexMono_500Medium",
+  monoSemiBold: "IBMPlexMono_600SemiBold",
+} as const;

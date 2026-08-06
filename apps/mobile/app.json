@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "sendtally",
+    "slug": "sendtally",
+    "version": "0.1.0",
+    "scheme": "sendtally",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.sendtally.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.sendtally.app"
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-font"],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

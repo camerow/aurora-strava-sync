@@ -215,6 +215,27 @@ describe("app", () => {
     expect(conn?.athlete_id).toBe(999);
   });
 
+  it("skips malformed climb rows instead of failing the cache fill", async () => {
+    const { putClimbData } = await import("../src/lib/repo");
+    await putClimbData(
+      env.DB,
+      "probe",
+      [
+        { climb_uuid: "ok", angle: 40, display_difficulty: 20 },
+        { climb_uuid: "bad", angle: 40 } as never,
+      ],
+      [{ uuid: "ok" }, { uuid: undefined } as never] as never
+    );
+    const stats = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM board_climb_stats WHERE board = 'probe'`
+    ).first<{ n: number }>();
+    const names = await env.DB.prepare(
+      `SELECT name FROM board_climb_names WHERE board = 'probe'`
+    ).all<{ name: string }>();
+    expect(stats?.n).toBe(1);
+    expect(names.results).toEqual([{ name: "" }]);
+  });
+
   it("enqueues a sync job on sync-now", async () => {
     const sent: unknown[] = [];
     const fakeEnv = {

@@ -144,6 +144,23 @@ export class AuroraClient {
     return { ascents, bids };
   }
 
+  async syncTable(
+    token: string,
+    table: "climbs" | "climb_stats",
+    since: string,
+    maxPages: number,
+    onPage: (stats: ClimbStat[], climbs: ClimbRow[]) => Promise<void>
+  ): Promise<{ complete: boolean; cursor: string }> {
+    const cursors: Record<string, string> = { [table]: since === "" ? EPOCH_SYNC_DATE : since };
+    const complete = await this.syncTables(
+      token,
+      cursors,
+      (p) => onPage(p.climb_stats ?? [], p.climbs ?? []),
+      maxPages
+    );
+    return { complete, cursor: cursors[table]! };
+  }
+
   async syncShared(
     token: string,
     statsSince: string,
