@@ -8,15 +8,37 @@ function durationLabel(startAt: string, endAt: string): string {
   return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
 }
 
+export type SessionBadge = "synced" | "pending" | "logged";
+
+const BADGE_STYLES: Record<SessionBadge, { label: string; border: string; color: string }> = {
+  synced: {
+    label: "SYNCED",
+    border: "1px solid rgba(27,98,206,0.4)",
+    color: "var(--bs-azure-ink)",
+  },
+  pending: {
+    label: "PENDING",
+    border: "1px solid rgba(64,63,76,0.25)",
+    color: "rgba(64,63,76,0.6)",
+  },
+  logged: {
+    label: "LOGGED",
+    border: "1px solid rgba(64,63,76,0.18)",
+    color: "rgba(64,63,76,0.45)",
+  },
+};
+
 export function SessionRowItem({
   session,
   boardLabel,
+  badge,
 }: {
   session: SessionRow;
   boardLabel: string;
+  badge: SessionBadge;
 }): React.ReactElement {
   const start = new Date(session.start_at);
-  const synced = session.strava_activity_id !== null;
+  const badgeStyle = BADGE_STYLES[badge];
   return (
     <div
       style={{
@@ -81,11 +103,11 @@ export function SessionRowItem({
           letterSpacing: "0.08em",
           borderRadius: "var(--radius-pill)",
           padding: "3px 9px",
-          border: synced ? "1px solid rgba(27,98,206,0.4)" : "1px solid rgba(64,63,76,0.25)",
-          color: synced ? "var(--bs-azure-ink)" : "rgba(64,63,76,0.6)",
+          border: badgeStyle.border,
+          color: badgeStyle.color,
         }}
       >
-        {synced ? "SYNCED" : "PENDING"}
+        {badgeStyle.label}
       </span>
     </div>
   );

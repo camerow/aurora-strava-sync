@@ -28,8 +28,8 @@ async function seedUser(
     )
     .run();
   await env.DB.prepare(
-    `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
-     VALUES (?, ?, ?, ?, ?, 'active', ?)`
+    `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at, posting_enabled, post_since)
+     VALUES (?, ?, ?, ?, ?, 'active', ?, 1, NULL)`
   )
     .bind(
       userId,
@@ -274,9 +274,29 @@ describe("syncOneUser", () => {
     expect(calls.every((c) => !c.url.includes("strava"))).toBe(true);
   });
 
-  it("respects sync_since as the posting cutoff", async () => {
+  it("does not post when posting is not enabled", async () => {
     await seedUser(userId, 45, 10);
-    await env.DB.prepare(`UPDATE board_connections SET sync_since = ? WHERE user_id = ?`)
+    await env.DB.prepare(`UPDATE strava_connections SET posting_enabled = 0 WHERE user_id = ?`)
+      .bind(userId)
+      .run();
+    const { fetchImpl, calls } = makeFakeFetch([
+      ...auroraRoutes(),
+      stravaCreateRoute(201, 3003),
+      stravaPatchRoute,
+    ]);
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome).toEqual({ status: "no_strava", posted: 0 });
+    expect(stravaCreateCalls(calls)).toHaveLength(0);
+
+    const rows = await env.DB.prepare(`SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?`)
+      .bind(userId)
+      .first<{ n: number }>();
+    expect(rows?.n).toBe(1);
+  });
+
+  it("respects post_since as the posting cutoff", async () => {
+    await seedUser(userId, 48, 12);
+    await env.DB.prepare(`UPDATE strava_connections SET post_since = ? WHERE user_id = ?`)
       .bind("2026-07-15 00:00:00.000000", userId)
       .run();
     const { fetchImpl, calls } = makeFakeFetch([

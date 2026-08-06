@@ -76,19 +76,12 @@ export async function syncOneUser(
   const climbs = await toClimbs(env, boardConn.board, ascents, bids);
   const sessions = buildSessions(climbs, defaultSessionConfig(), wallClockNow(user.timezone));
 
-  const cutoff = boardConn.sync_since === null ? null : parseAuroraTime(boardConn.sync_since);
   const effortCfg = defaultEffortConfig();
-  const scored = sessions
-    .map((sess, i) => ({
-      sess,
-      history: [...sessions.slice(0, i), ...sessions.slice(i + 1)],
-    }))
-    .filter(({ sess }) => cutoff === null || sess.start.getTime() >= cutoff.getTime())
-    .map(({ sess, history }) => ({
-      sess,
-      result: score(sess, history, effortCfg),
-      fp: fingerprint(boardConn.board_user_id, sess.climbs[0]!.time),
-    }));
+  const scored = sessions.map((sess, i) => ({
+    sess,
+    result: score(sess, [...sessions.slice(0, i), ...sessions.slice(i + 1)], effortCfg),
+    fp: fingerprint(boardConn.board_user_id, sess.climbs[0]!.time),
+  }));
 
   for (const s of scored) {
     await repo.upsertScoredSession(env.DB, userId, {
@@ -103,13 +96,17 @@ export async function syncOneUser(
     });
   }
 
-  if (stravaConn === null || stravaConn.status !== "active") {
+  if (stravaConn === null || stravaConn.status !== "active" || stravaConn.posting_enabled !== 1) {
     await repo.recordSyncResult(env.DB, userId, null);
     return { status: "no_strava", posted: 0 };
   }
 
+  const postCutoff = stravaConn.post_since === null ? null : parseAuroraTime(stravaConn.post_since);
   const posted = await repo.postedSessionFingerprints(env.DB, userId);
-  const toPost = scored.filter((s) => !posted.has(s.fp));
+  const toPost = scored.filter(
+    (s) =>
+      !posted.has(s.fp) && (postCutoff === null || s.sess.start.getTime() >= postCutoff.getTime())
+  );
 
   const strava = new StravaClient(
     { clientId: env.STRAVA_CLIENT_ID, clientSecret: env.STRAVA_CLIENT_SECRET },

@@ -19,6 +19,8 @@ export type StravaConnectionRow = {
   refresh_token_ciphertext: string;
   expires_at: number;
   status: string;
+  posting_enabled: number;
+  post_since: string | null;
 };
 
 export type SessionRow = {
@@ -105,7 +107,7 @@ export async function markBoardConnectionDead(db: D1Database, userId: string): P
 
 export async function upsertStravaConnection(
   db: D1Database,
-  row: Omit<StravaConnectionRow, "status">
+  row: Omit<StravaConnectionRow, "status" | "posting_enabled" | "post_since">
 ): Promise<void> {
   await db
     .prepare(
@@ -136,11 +138,23 @@ export async function getStravaConnection(
 ): Promise<StravaConnectionRow | null> {
   return db
     .prepare(
-      `SELECT user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status
+      `SELECT user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, posting_enabled, post_since
        FROM strava_connections WHERE user_id = ?`
     )
     .bind(userId)
     .first<StravaConnectionRow>();
+}
+
+export async function setStravaPosting(
+  db: D1Database,
+  userId: string,
+  enabled: boolean,
+  postSince: string | null
+): Promise<void> {
+  await db
+    .prepare(`UPDATE strava_connections SET posting_enabled = ?, post_since = ? WHERE user_id = ?`)
+    .bind(enabled ? 1 : 0, postSince, userId)
+    .run();
 }
 
 export async function updateStravaTokens(

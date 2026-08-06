@@ -20,7 +20,10 @@ const connectBoardBody = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
   timezone: z.string().min(1).default("UTC"),
-  backfill: z.boolean().default(false),
+});
+
+const stravaPostingBody = z.object({
+  mode: z.enum(["off", "new", "all"]),
 });
 
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
@@ -112,7 +115,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
   app.post("/v1/connect/board", async (c) => {
     const parsed = connectBoardBody.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
-    const { board, username, password, timezone, backfill } = parsed.data;
+    const { board, username, password, timezone } = parsed.data;
     const userId = c.get("userId");
 
     const client = new AuroraClient(baseUrlFor(board)!, fetchImpl);
@@ -127,14 +130,12 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     }
 
     await repo.upsertUser(c.env.DB, userId, timezone);
-    const today = wallClockNow(timezone);
-    const syncSince = backfill ? null : `${today.toISOString().slice(0, 10)} 00:00:00.000000`;
     await repo.upsertBoardConnection(c.env.DB, {
       user_id: userId,
       board,
       board_user_id: session.userId,
       token_ciphertext: await encryptSecret(session.token, c.env.TOKEN_KEY),
-      sync_since: syncSince,
+      sync_since: null,
     });
     await c.env.SYNC_QUEUE.send({ userId });
     return c.json({ board, boardUserId: session.userId });
@@ -175,10 +176,41 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const sync = await repo.getSyncState(c.env.DB, userId);
     return c.json({
       board: board === null ? null : { board: board.board, status: board.status },
-      strava: strava === null ? null : { athleteId: strava.athlete_id, status: strava.status },
+      strava:
+        strava === null
+          ? null
+          : {
+              athleteId: strava.athlete_id,
+              status: strava.status,
+              postingEnabled: strava.posting_enabled === 1,
+              postSince: strava.post_since,
+            },
       sync:
         sync === null ? null : { lastSyncedAt: sync.last_synced_at, lastError: sync.last_error },
     });
+  });
+
+  app.post("/v1/strava/posting", async (c) => {
+    const parsed = stravaPostingBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
+    const userId = c.get("userId");
+    const strava = await repo.getStravaConnection(c.env.DB, userId);
+    if (strava === null) return c.json({ error: "strava is not connected" }, 409);
+    const { mode } = parsed.data;
+    if (mode === "off") {
+      await repo.setStravaPosting(c.env.DB, userId, false, null);
+      return c.json({ mode });
+    }
+    const user = await repo.getUser(c.env.DB, userId);
+    const postSince =
+      mode === "new"
+        ? `${wallClockNow(user?.timezone ?? "UTC")
+            .toISOString()
+            .slice(0, 10)} 00:00:00.000000`
+        : null;
+    await repo.setStravaPosting(c.env.DB, userId, true, postSince);
+    await c.env.SYNC_QUEUE.send({ userId });
+    return c.json({ mode });
   });
 
   app.post("/v1/sync-now", async (c) => {

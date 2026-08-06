@@ -1,9 +1,9 @@
 import React from "react";
-import type { LoaderFunctionArgs } from "react-router";
-import { redirect, useLoaderData, useRevalidator } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { Form, redirect, useLoaderData, useRevalidator } from "react-router";
 import type { ConnectionStatus, SessionRow } from "@sendtally/api-client";
 import { requireApi } from "../lib/api.server";
-import { SessionRowItem } from "../sessions/components/SessionRowItem";
+import { SessionRowItem, type SessionBadge } from "../sessions/components/SessionRowItem";
 
 type LoaderData = {
   status: ConnectionStatus;
@@ -20,9 +20,15 @@ export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
   return { status, sessions };
 }
 
-export async function action(args: LoaderFunctionArgs): Promise<{ queued: boolean }> {
+export async function action(args: ActionFunctionArgs): Promise<{ ok: boolean }> {
   const api = await requireApi(args);
-  return api.syncNow();
+  const form = await args.request.formData();
+  const intent = form.get("intent");
+  if (intent === "posting-new") await api.setStravaPosting("new");
+  else if (intent === "posting-all") await api.setStravaPosting("all");
+  else if (intent === "posting-off") await api.setStravaPosting("off");
+  else await api.syncNow();
+  return { ok: true };
 }
 
 const BOARD_LABELS: Record<string, string> = {
@@ -35,12 +41,38 @@ const BOARD_LABELS: Record<string, string> = {
   aurora: "Aurora Board",
 };
 
+const bannerButton: React.CSSProperties = {
+  fontFamily: "var(--font-sans)",
+  fontWeight: 600,
+  fontSize: 13,
+  color: "var(--bs-white)",
+  background: "var(--bs-azure-ink)",
+  border: "none",
+  borderRadius: "var(--radius-control)",
+  padding: "9px 16px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+function badgeFor(session: SessionRow, status: ConnectionStatus): SessionBadge {
+  if (session.strava_activity_id !== null) return "synced";
+  const strava = status.strava;
+  if (strava === null || strava.status !== "active" || !strava.postingEnabled) return "logged";
+  if (strava.postSince !== null) {
+    const cutoff = new Date(`${strava.postSince.slice(0, 10)}T00:00:00Z`);
+    if (new Date(session.start_at) < cutoff) return "logged";
+  }
+  return "pending";
+}
+
 export default function Sessions(): React.ReactElement {
   const { status, sessions } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
   const boardLabel = BOARD_LABELS[status.board?.board ?? ""] ?? "Board";
   const [syncRequested, setSyncRequested] = React.useState(false);
   const importing = status.sync?.lastSyncedAt == null;
+  const stravaConnected = status.strava?.status === "active";
+  const postingOn = stravaConnected && status.strava?.postingEnabled === true;
 
   React.useEffect(() => {
     if (!importing) return;
@@ -50,8 +82,13 @@ export default function Sessions(): React.ReactElement {
 
   async function syncNow(): Promise<void> {
     setSyncRequested(true);
-    await fetch("/app?index", { method: "POST" });
-    setTimeout(() => revalidator.revalidate(), 4000);
+    const form = new FormData();
+    form.set("intent", "sync");
+    await fetch("/app?index", { method: "POST", body: form });
+    setTimeout(() => {
+      revalidator.revalidate();
+      setSyncRequested(false);
+    }, 5000);
   }
 
   return (
@@ -81,6 +118,26 @@ export default function Sessions(): React.ReactElement {
           {boardLabel.toUpperCase()}
         </span>
         <div style={{ flex: 1 }} />
+        {postingOn && (
+          <Form method="post">
+            <input type="hidden" name="intent" value="posting-off" />
+            <button
+              type="submit"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                letterSpacing: "0.06em",
+                color: "rgba(64,63,76,0.6)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              STRAVA POSTING ON · TURN OFF
+            </button>
+          </Form>
+        )}
         <button
           onClick={() => void syncNow()}
           disabled={syncRequested}
@@ -133,11 +190,12 @@ export default function Sessions(): React.ReactElement {
               color: "rgba(239,188,213,0.88)",
             }}
           >
-            READING YOUR LOGBOOK - the first import can take a minute. This page refreshes itself.
+            READING YOUR LOGBOOK - the first import can take a few minutes. This page refreshes
+            itself.
           </span>
         </div>
       )}
-      {status.strava?.status !== "active" && (
+      {!stravaConnected && (
         <div
           style={{
             display: "flex",
@@ -150,30 +208,66 @@ export default function Sessions(): React.ReactElement {
           }}
         >
           <span style={{ flex: 1, fontSize: 14, lineHeight: 1.5, color: "var(--text-on-light)" }}>
-            Sessions are recorded here but not posted anywhere. Connect Strava and each one becomes
-            a Rock Climbing activity on your feed.
+            Your logbook lives here either way. Connect Strava and, when you choose, sessions can
+            post to your feed as Rock Climbing activities.
           </span>
-          <a
-            href="/app/setup"
-            style={{
-              fontFamily: "var(--font-sans)",
-              fontWeight: 600,
-              fontSize: 13,
-              color: "var(--bs-white)",
-              background: "var(--bs-azure-ink)",
-              borderRadius: "var(--radius-control)",
-              padding: "9px 16px",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <a href="/app/setup" style={{ ...bannerButton, textDecoration: "none" }}>
             Connect Strava
           </a>
         </div>
       )}
+      {stravaConnected && !postingOn && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            background: "var(--surface-accent-pink)",
+            borderRadius: "var(--radius-card)",
+            padding: "16px 20px",
+            marginTop: 22,
+          }}
+        >
+          <span
+            style={{
+              flex: 1,
+              minWidth: 260,
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: "var(--text-on-light)",
+            }}
+          >
+            Strava is connected but nothing posts until you say so. Choose what to share - each
+            session becomes one Rock Climbing activity.
+          </span>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Form method="post">
+              <input type="hidden" name="intent" value="posting-new" />
+              <button type="submit" style={bannerButton}>
+                Post new sessions
+              </button>
+            </Form>
+            <Form method="post">
+              <input type="hidden" name="intent" value="posting-all" />
+              <button
+                type="submit"
+                style={{ ...bannerButton, background: "var(--bs-watermelon-ink)" }}
+              >
+                Post full history
+              </button>
+            </Form>
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22 }}>
         {sessions.map((s) => (
-          <SessionRowItem key={s.fingerprint} session={s} boardLabel={boardLabel} />
+          <SessionRowItem
+            key={s.fingerprint}
+            session={s}
+            boardLabel={boardLabel}
+            badge={badgeFor(s, status)}
+          />
         ))}
       </div>
       {sessions.length === 0 && !importing && (

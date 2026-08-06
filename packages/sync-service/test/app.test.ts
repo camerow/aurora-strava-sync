@@ -70,7 +70,7 @@ describe("app", () => {
     expect(conn?.board_user_id).toBe(42);
     expect(conn?.token_ciphertext).not.toContain("tok-abc");
     expect(await decryptSecret(conn!.token_ciphertext, env.TOKEN_KEY)).toBe("tok-abc");
-    expect(conn?.sync_since).toMatch(/^\d{4}-\d{2}-\d{2} 00:00:00\.000000$/);
+    expect(conn?.sync_since).toBeNull();
 
     const user = await env.DB.prepare(`SELECT timezone FROM users WHERE id = ?`)
       .bind("user_connect")

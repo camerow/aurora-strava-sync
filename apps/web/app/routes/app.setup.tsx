@@ -29,7 +29,6 @@ export async function action(args: ActionFunctionArgs): Promise<Response | { err
         username: String(form.get("username")),
         password: String(form.get("password")),
         timezone: String(form.get("timezone") || "UTC"),
-        backfill: form.get("backfill") === "all",
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
@@ -159,7 +158,8 @@ function BoardStep({ error, busy }: { error: string | null; busy: boolean }): Re
       <StepTitle>Link your board.</StepTitle>
       <StepBody>
         Board apps run on Aurora Climbing accounts - one login per app. sendtally signs in once to
-        mint a session token. The token is stored encrypted; the password is not stored.
+        mint a session token, then imports your whole logbook. The token is stored encrypted; the
+        password is not stored.
       </StepBody>
       <Form method="post" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <input type="hidden" name="intent" value="board" />
@@ -179,32 +179,6 @@ function BoardStep({ error, busy }: { error: string | null; busy: boolean }): Re
           style={fieldStyle}
         />
         <input name="password" type="password" required placeholder="Password" style={fieldStyle} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "6px 0" }}>
-          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
-            <input
-              type="radio"
-              name="backfill"
-              value="new"
-              defaultChecked
-              style={{ marginTop: 3 }}
-            />
-            <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Just new sessions</span>
-              <span style={{ fontSize: 13, color: "var(--text-on-white-secondary)" }}>
-                Start from today. The past stays where it is.
-              </span>
-            </span>
-          </label>
-          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
-            <input type="radio" name="backfill" value="all" style={{ marginTop: 3 }} />
-            <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Import full history</span>
-              <span style={{ fontSize: 13, color: "var(--text-on-white-secondary)" }}>
-                Every logged session becomes a back-dated Strava activity.
-              </span>
-            </span>
-          </label>
-        </div>
         {error !== null && (
           <span
             style={{

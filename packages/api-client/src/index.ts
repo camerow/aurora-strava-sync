@@ -4,6 +4,7 @@ import {
   type ConnectBoardResult,
   type ConnectionStatus,
   type SessionRow,
+  type StravaPostingMode,
 } from "./types";
 
 export * from "./types";
@@ -51,6 +52,13 @@ export class SendtallyApi {
 
   stravaAuthorizeUrl(): Promise<{ url: string }> {
     return this.request<{ url: string }>("/v1/connect/strava/start");
+  }
+
+  setStravaPosting(mode: StravaPostingMode): Promise<{ mode: StravaPostingMode }> {
+    return this.request<{ mode: StravaPostingMode }>("/v1/strava/posting", {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    });
   }
 
   syncNow(): Promise<{ queued: boolean }> {

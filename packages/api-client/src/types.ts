@@ -1,8 +1,15 @@
 export type ConnectionStatus = {
   board: { board: string; status: string } | null;
-  strava: { athleteId: number; status: string } | null;
+  strava: {
+    athleteId: number;
+    status: string;
+    postingEnabled: boolean;
+    postSince: string | null;
+  } | null;
   sync: { lastSyncedAt: string | null; lastError: string | null } | null;
 };
+
+export type StravaPostingMode = "off" | "new" | "all";
 
 export type SessionRow = {
   fingerprint: string;
@@ -21,7 +28,6 @@ export type ConnectBoardInput = {
   username: string;
   password: string;
   timezone?: string;
-  backfill?: boolean;
 };
 
 export type ConnectBoardResult = { board: string; boardUserId: number };
