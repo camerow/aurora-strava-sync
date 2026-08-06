@@ -103,7 +103,7 @@ describe("score", () => {
       "1 attempt",
       "V4-V7",
       "avg V6.0",
-      "synced by boardsync",
+      "synced by sendtally",
       "RPE",
       "✓ V4 Jug Life",
       "✓ V7 Crimp Reaper",

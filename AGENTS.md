@@ -1,8 +1,8 @@
-# boardsync - Agent Guidelines
+# sendtally - Agent Guidelines
 
 ## Project Overview
 
-boardsync is a multi-user service that syncs climbing sessions from Aurora Climbing board apps (Tension, Kilter, Aurora, Decoy, Grasshopper, So iLL, Touchstone) to Strava as `RockClimbing` activities.
+sendtally is a multi-user service that syncs climbing sessions from Aurora Climbing board apps (Tension, Kilter, Aurora, Decoy, Grasshopper, So iLL, Touchstone) to Strava as `RockClimbing` activities.
 Every logged ascent and attempt is pulled from the board's API, grouped into sessions by time gaps, scored for effort on an RPE-style 1-10 scale, and posted to Strava with an effort-based title and per-climb log.
 
 The product is free for users; the monetization path is ad revenue (SEO content pages on the web app first, mobile ads later).
@@ -43,7 +43,7 @@ Trends/dashboards come after v1.
 ## Monorepo structure (target)
 
 ```
-boardsync/
+sendtally/
 ├── apps/
 │   ├── mobile/          Expo (iOS + Android), EAS builds
 │   └── web/             React Router 7 on Workers: marketing, SEO content, connect flows, dashboard
@@ -60,14 +60,16 @@ boardsync/
 - **Package manager:** `pnpm`. Never `npm` or `yarn`.
 - **Build system:** Turborepo. Tasks run from the repo root: `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm check-types`, `pnpm test`, `pnpm format`.
 - **Toolchain versions:** pinned in `.prototools` (proto manages Node and Go here; this repo does not use asdf).
-- **Package scope:** every workspace package is `@boardsync/*` (e.g. `@boardsync/core`, `@boardsync/sync-service`). Never introduce another scope.
+- **Package scope:** every workspace package is `@sendtally/*` (e.g. `@sendtally/core`, `@sendtally/sync-service`). Never introduce another scope.
 
 ### Domain and routing
 
-Domain: `boardsync.app`, purchased and DNS-hosted on Cloudflare (`boardsync.com` is held by an unrelated party; the `.app` TLD is HSTS-preloaded, so HTTPS is mandatory - a non-issue on Cloudflare).
+Domain: `sendtally.com`, purchased and DNS-hosted on Cloudflare.
+The product was briefly named boardsync; that name was dropped because `boardsync.com` is held by an unrelated party and `boardsync.app` is registry-premium and not sellable via Cloudflare Registrar.
+`sendtally.app` is worth registering too as a redirect if it is standard-priced.
 
-- `boardsync.app`: `apps/web` (Workers custom domain)
-- `api.boardsync.app`: `packages/sync-service` Worker
+- `sendtally.com`: `apps/web` (Workers custom domain)
+- `api.sendtally.com`: `packages/sync-service` Worker
 
 ### Environments and deploys
 
@@ -82,8 +84,8 @@ The domain flow ports directly from the Go CLI:
 1. Cron (hourly) enqueues one queue message per user due for sync.
 2. The queue consumer pulls the user's ascents/bids from their board via the cursor sync API.
 3. Climb names/grades resolve from the shared per-board cache (its own cron keeps it fresh).
-4. `@boardsync/core` groups climbs into sessions (90-minute gap, warmup/cooldown buffers) and excludes sessions inside the in-progress window (~2h) so an ongoing session is never posted early.
-5. `@boardsync/core` scores each session against the user's rolling 8-week history and produces RPE, title, and description.
+4. `@sendtally/core` groups climbs into sessions (90-minute gap, warmup/cooldown buffers) and excludes sessions inside the in-progress window (~2h) so an ongoing session is never posted early.
+5. `@sendtally/core` scores each session against the user's rolling 8-week history and produces RPE, title, and description.
 6. Unposted sessions post to Strava; perceived exertion is patched in a second call (the create endpoint ignores the field).
 
 Invariants that must survive the port:
@@ -92,7 +94,7 @@ Invariants that must survive the port:
 - Dedup lives in the database (`is_posted` checked before, `mark_posted` after). Retries, overlapping runs, and resumed backfills are always safe.
 - Strava rate limiting is a clean pause, not an error; the queue retry picks the user back up.
 - Unknown grades are `-1` and score conservatively as V1.
-- Keep the "synced by boardsync" attribution line in activity descriptions (Strava attribution expectations).
+- Keep the "synced by sendtally" attribution line in activity descriptions (Strava attribution expectations).
 
 ## Strava operational constraints
 
@@ -104,9 +106,9 @@ Invariants that must survive the port:
 
 Three layers; the tokens file is the contract between platforms.
 
-1. `@boardsync/design`: colors, spacing scale, type scale, radii as plain TS/CSS variables, consumed by one shared Tailwind config. Single theme, no light/dark.
+1. `@sendtally/design`: colors, spacing scale, type scale, radii as plain TS/CSS variables, consumed by one shared Tailwind config. Single theme, no light/dark.
 2. Web: Tailwind v4 + shadcn/ui components copied in and restyled from the tokens. The components are ours to edit. Clerk headless hooks get skinned with these.
-3. Native: NativeWind 4 + a small hand-rolled kit in `@boardsync/ui-native` (button, card, list row, stat tile, sheet, input, ...). No pre-built RN component library.
+3. Native: NativeWind 4 + a small hand-rolled kit in `@sendtally/ui-native` (button, card, list row, stat tile, sheet, input, ...). No pre-built RN component library.
 
 `bg-primary` must mean the same color on both platforms.
 Design work (Claude-generated or otherwise) targets the token vocabulary; each platform implements idiomatically.
@@ -114,8 +116,8 @@ Design work (Claude-generated or otherwise) targets the token vocabulary; each p
 ## Migration order
 
 1. ~~Restructure commit: move the Go CLI to `tools/cli-go/`, scaffold pnpm + Turborepo at the root.~~ Done.
-2. `@boardsync/core`: port `grades`, `session`, `effort` with table-driven Vitest tests mirroring the Go tests.
-3. `@boardsync/sync-service`: Aurora + Strava clients, D1 schema, connect flows, cron + queue pipeline. Run single-athlete end to end.
+2. `@sendtally/core`: port `grades`, `session`, `effort` with table-driven Vitest tests mirroring the Go tests.
+3. `@sendtally/sync-service`: Aurora + Strava clients, D1 schema, connect flows, cron + queue pipeline. Run single-athlete end to end.
 4. `apps/web`: marketing page, Clerk sign-in, connect flows, minimal dashboard.
 5. `apps/mobile`: Expo app - onboarding, connect flows, session list, push notifications.
 6. Apply for the Strava quota increase; open sign-ups on approval.

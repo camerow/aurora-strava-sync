@@ -149,7 +149,7 @@ function summary(rpe: number, s: Session): string {
   const lines = [
     `RPE ${rpe}/10 · ${plural(sends, "send")}, ${plural(attempts, "attempt")}${grades}`,
     ...s.climbs.map(climbLine),
-    "synced by boardsync",
+    "synced by sendtally",
   ];
   return lines.join("\n");
 }

@@ -1,9 +1,9 @@
-# boardsync
+# sendtally
 
 Sync your climbing sessions from any Aurora Climbing board app (Tension, Kilter, Aurora, Decoy, Grasshopper, So iLL, Touchstone) to Strava as `RockClimbing` activities.
 Every logged ascent and attempt is pulled from the board's API, grouped into sessions, scored for effort on an RPE-style 1-10 scale, and posted to Strava with an effort-based title and per-climb log.
 
-boardsync is a monorepo:
+sendtally is a monorepo:
 
 | Path                    | What                                                                                |
 | ----------------------- | ----------------------------------------------------------------------------------- |
