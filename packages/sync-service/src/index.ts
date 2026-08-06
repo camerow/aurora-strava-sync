@@ -1,0 +1,31 @@
+import { createApp } from "./app";
+import { verifyClerkUser } from "./auth";
+import type { Env, SyncJob } from "./bindings";
+import { usersDueForSync } from "./lib/repo";
+import { syncOneUser } from "./pipeline";
+
+const SYNC_INTERVAL_MS = 55 * 60 * 1000;
+const RATE_LIMIT_RETRY_SECONDS = 15 * 60;
+
+const app = createApp({ verifyUser: verifyClerkUser });
+
+export default {
+  fetch: app.fetch,
+
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    const due = await usersDueForSync(env.DB, SYNC_INTERVAL_MS);
+    if (due.length === 0) return;
+    await env.SYNC_QUEUE.sendBatch(due.map((userId) => ({ body: { userId } })));
+  },
+
+  async queue(batch: MessageBatch<SyncJob>, env: Env): Promise<void> {
+    for (const msg of batch.messages) {
+      const outcome = await syncOneUser(env, msg.body.userId);
+      if (outcome.status === "rate_limited") {
+        msg.retry({ delaySeconds: RATE_LIMIT_RETRY_SECONDS });
+      } else {
+        msg.ack();
+      }
+    }
+  },
+} satisfies ExportedHandler<Env, SyncJob>;
