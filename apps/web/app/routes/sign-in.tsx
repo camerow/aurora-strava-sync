@@ -1,4 +1,5 @@
 import { useClerk } from "@clerk/react-router";
+import { isClerkAPIResponseError } from "@clerk/react-router/errors";
 import React from "react";
 import { useNavigate } from "react-router";
 import { AuthShell, StepBody, StepCard, StepTitle } from "../auth/components/AuthShell";
@@ -48,6 +49,14 @@ const stepLabel: React.CSSProperties = {
   color: "var(--text-label-accent)",
 };
 
+function clerkErrorMessage(err: unknown): string {
+  if (isClerkAPIResponseError(err)) {
+    const first = err.errors[0];
+    if (first !== undefined) return first.longMessage ?? first.message;
+  }
+  return "Could not send the link. Check the address and try again.";
+}
+
 export default function SignIn(): React.ReactElement {
   const clerk = useClerk();
   const navigate = useNavigate();
@@ -83,7 +92,16 @@ export default function SignIn(): React.ReactElement {
         await clerk.setActive({ session: result.createdSessionId });
         await navigate("/app");
       }
-    } catch {
+    } catch (signInErr) {
+      const identifierNotFound =
+        isClerkAPIResponseError(signInErr) &&
+        signInErr.errors.some((e) => e.code === "form_identifier_not_found");
+      if (!identifierNotFound) {
+        setSent(false);
+        setError(clerkErrorMessage(signInErr));
+        setBusy(false);
+        return;
+      }
       try {
         const signUp = await clerk.client.signUp.create({ emailAddress: email });
         setSent(true);
@@ -93,9 +111,9 @@ export default function SignIn(): React.ReactElement {
           await clerk.setActive({ session: result.createdSessionId });
           await navigate("/app");
         }
-      } catch {
+      } catch (signUpErr) {
         setSent(false);
-        setError("Could not send the link. Check the address and try again.");
+        setError(clerkErrorMessage(signUpErr));
       }
     }
     setBusy(false);
@@ -169,6 +187,7 @@ export default function SignIn(): React.ReactElement {
           >
             Email me a sign-in link
           </button>
+          <div id="clerk-captcha" />
         </div>
         <span
           style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "rgba(64,63,76,0.58)" }}
