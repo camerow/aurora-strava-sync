@@ -21,7 +21,7 @@ const STEPS: Array<[string, string, string]> = [
 
 export function HowItWorks(): React.ReactElement {
   return (
-    <div id="how" style={{ background: "var(--surface-accent-pink)", padding: "60px 56px" }}>
+    <div id="how" className="l-how">
       <div
         style={{
           maxWidth: 1440,
@@ -31,34 +31,11 @@ export function HowItWorks(): React.ReactElement {
           gap: 36,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: 40,
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: "var(--font-display)",
-              fontWeight: 700,
-              fontSize: 36,
-              letterSpacing: "-0.03em",
-              color: "var(--text-on-light)",
-            }}
-          >
+        <div className="l-how-header">
+          <h2 className="l-section-title" style={{ color: "var(--text-on-light)" }}>
             Two connections, once.
           </h2>
-          <span
-            style={{
-              fontSize: 14,
-              color: "var(--text-on-light)",
-              maxWidth: 400,
-              textAlign: "right",
-            }}
-          >
+          <span className="l-how-blurb">
             After setup it runs on its own. Sessions show up within a few hours of you logging them
             in the board app.
           </span>

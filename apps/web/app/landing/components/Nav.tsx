@@ -1,47 +1,22 @@
 import React from "react";
 import { Button, Logo } from "@sendtally/design";
 
-export function Nav({ signedIn }: { signedIn: boolean }): React.ReactElement {
+export function Nav(): React.ReactElement {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "20px 56px",
-        borderBottom: "1px solid var(--line-on-light)",
-      }}
-    >
+    <div className="l-nav">
       <Logo tone="on-light" size={24} />
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 28,
-          flexWrap: "wrap",
-          justifyContent: "flex-end",
-        }}
-      >
+      <div className="l-nav-links">
         {[
           ["How it works", "#how"],
           ["Boards", "#boards"],
           ["Price", "#price"],
         ].map(([label, href]) => (
-          <a
-            key={label}
-            href={href}
-            style={{
-              fontWeight: 500,
-              fontSize: 13,
-              color: "var(--text-on-white-secondary)",
-              textDecoration: "none",
-            }}
-          >
+          <a key={label} href={href} className="l-nav-anchor">
             {label}
           </a>
         ))}
         <Button variant="gold" size="sm" href="/app">
-          {signedIn ? "Open app →" : "Create account"}
+          Create account
         </Button>
       </div>
     </div>

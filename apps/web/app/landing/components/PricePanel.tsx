@@ -3,18 +3,8 @@ import { Button } from "@sendtally/design";
 
 export function PricePanel(): React.ReactElement {
   return (
-    <div id="price" style={{ padding: "0 56px 76px", maxWidth: 1440, margin: "0 auto" }}>
-      <div
-        style={{
-          background: "var(--surface-accent-gold)",
-          borderRadius: "var(--radius-panel)",
-          padding: 52,
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: 48,
-          alignItems: "center",
-        }}
-      >
+    <div id="price" className="l-price">
+      <div className="l-price-panel">
         <div
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 18 }}
         >
@@ -29,19 +19,7 @@ export function PricePanel(): React.ReactElement {
           >
             PRICE
           </span>
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: "var(--font-display)",
-              fontWeight: 800,
-              fontSize: 52,
-              lineHeight: 1,
-              letterSpacing: "-0.035em",
-              color: "var(--text-on-light)",
-            }}
-          >
-            Free. No subscription.
-          </h2>
+          <h2 className="l-price-title">Free. No subscription.</h2>
           <p
             style={{
               margin: 0,
