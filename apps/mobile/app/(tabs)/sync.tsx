@@ -4,6 +4,7 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSyncSettings } from "@sendtally/features/sync-settings";
+import { BOARD_LABELS } from "@sendtally/features/session-detail";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 import { Logo } from "../../components/Logo";
 import { useApi } from "../../lib/api";
@@ -45,12 +46,23 @@ export default function Sync(): React.ReactElement {
   const clerk = useClerk();
   const { user } = useUser();
   const router = useRouter();
-  const { state, syncRequested, syncSessions, postingBusy, setPosting, message } =
-    useSyncSettings(api);
+  const {
+    state,
+    syncingBoard,
+    syncBoard,
+    postingBoard,
+    setPosting,
+    scheduleBusy,
+    setSchedule,
+    message,
+  } = useSyncSettings(api);
 
   const status = state.status === "ready" ? state.data : null;
-  const boardName = status?.board?.board;
-  const postingOn = status?.strava?.status === "active" && status.strava.postingEnabled;
+  const boards = status?.boards ?? [];
+  const activeBoards = boards.filter((b) => b.status === "active");
+  const stravaActive = status?.strava?.status === "active";
+  const anyPostingOn = stravaActive && boards.some((b) => b.postingEnabled);
+  const autoSync = status?.autoSync === true;
   const lastSync = status?.sync?.lastSyncedAt;
 
   return (
@@ -83,11 +95,7 @@ export default function Sync(): React.ReactElement {
               color: colors.textMuted,
             }}
           >
-            {postingOn
-              ? "STRAVA + BOARD"
-              : boardName !== undefined
-                ? "BOARD ONLY"
-                : "NOT CONNECTED"}
+            {anyPostingOn ? "STRAVA + BOARD" : boards.length > 0 ? "BOARD ONLY" : "NOT CONNECTED"}
           </Text>
         </View>
 
@@ -101,9 +109,27 @@ export default function Sync(): React.ReactElement {
               color: colors.textSecondary,
             }}
           >
-            Automatic. The server checks your board every 15 minutes and imports anything new -
-            nothing to keep open on your phone.
+            {autoSync
+              ? "Automatic daily sync is on - the server checks your boards once a day and imports anything new."
+              : "Automatic sync is off. Sync each board below when you want, or turn on a once-a-day automatic check."}
           </Text>
+          <Pressable
+            onPress={() => void setSchedule(autoSync ? "off" : "daily")}
+            disabled={scheduleBusy || status === null}
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.mono,
+                fontSize: 12,
+                letterSpacing: 0.6,
+                color: autoSync ? "rgba(64,63,76,0.6)" : colors.azureInk,
+                textDecorationLine: "underline",
+              }}
+            >
+              {autoSync ? "TURN OFF DAILY SYNC" : "TURN ON DAILY SYNC"}
+            </Text>
+          </Pressable>
           <Text
             style={{
               fontFamily: fonts.monoMedium,
@@ -120,23 +146,41 @@ export default function Sync(): React.ReactElement {
 
         <SectionCard>
           <SectionLabel>MANUAL SYNC</SectionLabel>
-          <Pressable
-            onPress={() => void syncSessions()}
-            disabled={syncRequested}
-            style={{
-              backgroundColor: colors.azureInk,
-              borderRadius: radius.control,
-              paddingVertical: 14,
-              minHeight: 48,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: syncRequested ? 0.45 : 1,
-            }}
-          >
-            <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 15, color: colors.white }}>
-              {syncRequested ? "Syncing…" : "Sync sessions"}
+          {activeBoards.length === 0 ? (
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                lineHeight: 20,
+                color: colors.textSecondary,
+              }}
+            >
+              Connect a board on the web at sendtally.com and its sync button appears here.
             </Text>
-          </Pressable>
+          ) : (
+            activeBoards.map((b) => (
+              <Pressable
+                key={b.board}
+                onPress={() => void syncBoard(b.board)}
+                disabled={syncingBoard !== null}
+                style={{
+                  backgroundColor: colors.azureInk,
+                  borderRadius: radius.control,
+                  paddingVertical: 14,
+                  minHeight: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: syncingBoard !== null ? 0.45 : 1,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 15, color: colors.white }}>
+                  {syncingBoard === b.board
+                    ? "Syncing…"
+                    : `Sync ${BOARD_LABELS[b.board] ?? "board"}`}
+                </Text>
+              </Pressable>
+            ))
+          )}
           {message !== null && (
             <Text
               style={{
@@ -153,7 +197,7 @@ export default function Sync(): React.ReactElement {
 
         <SectionCard>
           <SectionLabel>STRAVA POSTING</SectionLabel>
-          {status?.strava == null || status.strava.status !== "active" ? (
+          {!stravaActive ? (
             <Text
               style={{
                 fontFamily: fonts.sans,
@@ -162,90 +206,115 @@ export default function Sync(): React.ReactElement {
                 color: colors.textSecondary,
               }}
             >
-              Strava is not connected. Connect it on the web at sendtally.com, then choose here what
-              gets posted.
+              Strava is not connected. Connect it on the web at sendtally.com, then choose here per
+              board what gets posted.
+            </Text>
+          ) : activeBoards.length === 0 ? (
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                lineHeight: 20,
+                color: colors.textSecondary,
+              }}
+            >
+              Connect a board and choose per board what gets posted.
             </Text>
           ) : (
-            <>
-              <Text
-                style={{
-                  fontFamily: fonts.sans,
-                  fontSize: 13,
-                  lineHeight: 20,
-                  color: colors.textSecondary,
-                }}
-              >
-                {postingOn
-                  ? "Posting is on - each session becomes one Rock Climbing activity."
-                  : "Connected, but nothing posts until you say so."}
-              </Text>
-              <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                {postingOn ? (
-                  <Pressable
-                    onPress={() => void setPosting("off")}
-                    disabled={postingBusy}
-                    style={{ minHeight: 44, justifyContent: "center" }}
+            activeBoards.map((b) => (
+              <View key={b.board} style={{ gap: 8 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <Text
+                    style={{ fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.gunmetal }}
                   >
-                    <Text
-                      style={{
-                        fontFamily: fonts.mono,
-                        fontSize: 11,
-                        letterSpacing: 0.6,
-                        color: "rgba(64,63,76,0.6)",
-                        textDecorationLine: "underline",
-                      }}
-                    >
-                      TURN OFF
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <>
+                    {BOARD_LABELS[b.board] ?? b.board}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: fonts.monoMedium,
+                      fontSize: 9,
+                      letterSpacing: 0.7,
+                      color: colors.textMuted,
+                    }}
+                  >
+                    {b.postingEnabled ? "POSTING ON" : "POSTING OFF"}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                  {b.postingEnabled ? (
                     <Pressable
-                      onPress={() => void setPosting("new")}
-                      disabled={postingBusy}
-                      style={{
-                        backgroundColor: colors.azureInk,
-                        borderRadius: radius.control,
-                        paddingHorizontal: 14,
-                        minHeight: 44,
-                        justifyContent: "center",
-                      }}
+                      onPress={() => void setPosting(b.board, "off")}
+                      disabled={postingBoard !== null}
+                      style={{ minHeight: 44, justifyContent: "center" }}
                     >
                       <Text
                         style={{
-                          fontFamily: fonts.sansSemiBold,
-                          fontSize: 13,
-                          color: colors.white,
+                          fontFamily: fonts.mono,
+                          fontSize: 11,
+                          letterSpacing: 0.6,
+                          color: "rgba(64,63,76,0.6)",
+                          textDecorationLine: "underline",
                         }}
                       >
-                        Post new sessions
+                        TURN OFF
                       </Text>
                     </Pressable>
-                    <Pressable
-                      onPress={() => void setPosting("all")}
-                      disabled={postingBusy}
-                      style={{
-                        backgroundColor: colors.watermelonInk,
-                        borderRadius: radius.control,
-                        paddingHorizontal: 14,
-                        minHeight: 44,
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text
+                  ) : (
+                    <>
+                      <Pressable
+                        onPress={() => void setPosting(b.board, "new")}
+                        disabled={postingBoard !== null}
                         style={{
-                          fontFamily: fonts.sansSemiBold,
-                          fontSize: 13,
-                          color: colors.white,
+                          backgroundColor: colors.azureInk,
+                          borderRadius: radius.control,
+                          paddingHorizontal: 14,
+                          minHeight: 44,
+                          justifyContent: "center",
                         }}
                       >
-                        Post full history
-                      </Text>
-                    </Pressable>
-                  </>
-                )}
+                        <Text
+                          style={{
+                            fontFamily: fonts.sansSemiBold,
+                            fontSize: 13,
+                            color: colors.white,
+                          }}
+                        >
+                          Post new sessions
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => void setPosting(b.board, "all")}
+                        disabled={postingBoard !== null}
+                        style={{
+                          backgroundColor: colors.watermelonInk,
+                          borderRadius: radius.control,
+                          paddingHorizontal: 14,
+                          minHeight: 44,
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontFamily: fonts.sansSemiBold,
+                            fontSize: 13,
+                            color: colors.white,
+                          }}
+                        >
+                          Post full history
+                        </Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
               </View>
-            </>
+            ))
           )}
         </SectionCard>
 

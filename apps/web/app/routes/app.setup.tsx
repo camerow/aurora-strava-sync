@@ -5,13 +5,17 @@ import { ApiError, type ConnectionStatus } from "@sendtally/api-client";
 import { AuthShell, StepBody, StepCard, StepTitle } from "../auth/components/AuthShell";
 import { requireApi } from "../lib/api.server";
 
-export async function loader(args: LoaderFunctionArgs): Promise<{ status: ConnectionStatus }> {
+export async function loader(
+  args: LoaderFunctionArgs
+): Promise<{ status: ConnectionStatus; addBoard: boolean }> {
   const api = await requireApi(args);
+  const addBoard = new URL(args.request.url).searchParams.get("add") === "board";
   const status = await api.status();
-  if (status.strava?.status === "active" && status.board?.status === "active") {
+  const boardActive = status.boards.some((b) => b.status === "active");
+  if (!addBoard && status.strava?.status === "active" && boardActive) {
     throw redirect("/app");
   }
-  return { status };
+  return { status, addBoard };
 }
 
 export async function action(args: ActionFunctionArgs): Promise<Response | { error: string }> {
@@ -39,7 +43,7 @@ export async function action(args: ActionFunctionArgs): Promise<Response | { err
       }
       return { error: `Board connect failed (${err instanceof Error ? err.message : "unknown"}).` };
     }
-    return redirect("/app/setup");
+    return redirect(form.get("add") === "board" ? "/app/settings" : "/app/setup");
   }
   return { error: "unknown action" };
 }
@@ -147,22 +151,31 @@ const BOARD_OPTIONS: Array<[string, string]> = [
   ["aurora", "Aurora Board"],
 ];
 
-function BoardStep({ error, busy }: { error: string | null; busy: boolean }): React.ReactElement {
+function BoardStep({
+  error,
+  busy,
+  addBoard,
+}: {
+  error: string | null;
+  busy: boolean;
+  addBoard: boolean;
+}): React.ReactElement {
   const [timezone, setTimezone] = React.useState("UTC");
   React.useEffect(() => {
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, []);
 
   return (
-    <StepCard step="STEP 2 OF 4 · BOARDS" width={560}>
-      <StepTitle>Link your board.</StepTitle>
+    <StepCard step={addBoard ? "BOARDS · ADD ANOTHER" : "STEP 2 OF 4 · BOARDS"} width={560}>
+      <StepTitle>{addBoard ? "Link another board." : "Link your board."}</StepTitle>
       <StepBody>
         Board apps run on Aurora Climbing accounts - one login per app. sendtally signs in once to
         mint a session token, then imports your whole logbook. The token is stored encrypted; the
-        password is not stored.
+        password is not stored. You can connect as many boards as you climb on.
       </StepBody>
       <Form method="post" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <input type="hidden" name="intent" value="board" />
+        {addBoard && <input type="hidden" name="add" value="board" />}
         <input type="hidden" name="timezone" value={timezone} />
         <select name="board" defaultValue="tension" style={{ ...fieldStyle, cursor: "pointer" }}>
           {BOARD_OPTIONS.map(([value, label]) => (
@@ -208,14 +221,20 @@ function BoardStep({ error, busy }: { error: string | null; busy: boolean }): Re
 }
 
 export default function Setup(): React.ReactElement {
-  const { status } = useLoaderData<typeof loader>();
+  const { status, addBoard } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const busy = navigation.state === "submitting";
-  const boardDone = status.board?.status === "active";
+  const boardDone = status.boards.some((b) => b.status === "active");
   const error = actionData !== undefined && "error" in actionData ? actionData.error : null;
 
   return (
-    <AuthShell>{boardDone ? <StravaStep /> : <BoardStep error={error} busy={busy} />}</AuthShell>
+    <AuthShell>
+      {boardDone && !addBoard ? (
+        <StravaStep />
+      ) : (
+        <BoardStep error={error} busy={busy} addBoard={addBoard} />
+      )}
+    </AuthShell>
   );
 }

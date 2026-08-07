@@ -11,15 +11,9 @@ import { cloudflareContext } from "../lib/cloudflare-context";
 import { requireApi } from "../lib/api.server";
 import { useClientApi } from "../lib/useClientApi";
 
-export async function loader(
-  args: LoaderFunctionArgs
-): Promise<{ apiUrl: string; board: string | null }> {
-  const api = await requireApi(args);
-  const status = await api.status();
-  return {
-    apiUrl: args.context.get(cloudflareContext).env.API_URL,
-    board: status.board?.board ?? null,
-  };
+export async function loader(args: LoaderFunctionArgs): Promise<{ apiUrl: string }> {
+  await requireApi(args);
+  return { apiUrl: args.context.get(cloudflareContext).env.API_URL };
 }
 
 const monoLabel: React.CSSProperties = {
@@ -70,10 +64,10 @@ const RESULT_BADGES: Record<
 const GRID = "34px 1.9fr 62px 62px 62px 70px 92px";
 
 export default function SessionDetailRoute(): React.ReactElement {
-  const { apiUrl, board } = useLoaderData<typeof loader>();
+  const { apiUrl } = useLoaderData<typeof loader>();
   const params = useParams();
   const api = useClientApi(apiUrl);
-  const feature = useSessionDetail(api, params.fingerprint ?? "", board);
+  const feature = useSessionDetail(api, params.fingerprint ?? "");
   const { state, filter, setFilter, sort, setSort } = feature;
 
   if (state.status === "loading") {

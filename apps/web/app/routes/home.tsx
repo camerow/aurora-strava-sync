@@ -1,4 +1,7 @@
+import { getAuth } from "@clerk/react-router/ssr.server";
 import React from "react";
+import type { LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { BoardsAndDetails } from "../landing/components/BoardsAndDetails";
 import { Footer } from "../landing/components/Footer";
 import { Hero } from "../landing/components/Hero";
@@ -17,11 +20,17 @@ export function meta(): Array<Record<string, string>> {
   ];
 }
 
+export async function loader(args: LoaderFunctionArgs): Promise<{ signedIn: boolean }> {
+  const auth = await getAuth(args);
+  return { signedIn: auth.isAuthenticated };
+}
+
 export default function Home(): React.ReactElement {
+  const { signedIn } = useLoaderData<typeof loader>();
   return (
     <div>
-      <Nav />
-      <Hero />
+      <Nav signedIn={signedIn} />
+      <Hero signedIn={signedIn} />
       <HowItWorks />
       <BoardsAndDetails />
       <PricePanel />

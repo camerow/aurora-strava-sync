@@ -48,6 +48,18 @@ const azureButton: React.CSSProperties = {
   alignSelf: "flex-start",
 };
 
+const underlineButton: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 11,
+  letterSpacing: "0.06em",
+  color: "rgba(64,63,76,0.6)",
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  textDecoration: "underline",
+  padding: 0,
+};
+
 function Section({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
     <div
@@ -66,17 +78,32 @@ function Section({ children }: { children: React.ReactNode }): React.ReactElemen
   );
 }
 
+function boardLabelOf(board: string): string {
+  return BOARD_LABELS[board] ?? "Board";
+}
+
 export default function SettingsRoute(): React.ReactElement {
   const { apiUrl } = useLoaderData<typeof loader>();
   const api = useClientApi(apiUrl);
-  const { state, syncRequested, syncSessions, postingBusy, setPosting, message } =
-    useSyncSettings(api);
+  const {
+    state,
+    syncingBoard,
+    syncBoard,
+    postingBoard,
+    setPosting,
+    scheduleBusy,
+    setSchedule,
+    message,
+  } = useSyncSettings(api);
 
   const status = state.status === "ready" ? state.data : null;
-  const board = status?.board ?? null;
+  const boards = status?.boards ?? [];
+  const activeBoards = boards.filter((b) => b.status === "active");
   const strava = status?.strava ?? null;
-  const postingOn = strava?.status === "active" && strava.postingEnabled;
+  const stravaActive = strava?.status === "active";
+  const anyPostingOn = stravaActive && boards.some((b) => b.postingEnabled);
   const lastSync = status?.sync?.lastSyncedAt ?? null;
+  const autoSync = status?.autoSync === true;
 
   return (
     <div style={{ maxWidth: 640, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -93,16 +120,28 @@ export default function SettingsRoute(): React.ReactElement {
           Sync & accounts
         </h1>
         <span style={monoMuted}>
-          {postingOn ? "STRAVA + BOARD" : board !== null ? "BOARD ONLY" : "NOT CONNECTED"}
+          {anyPostingOn ? "STRAVA + BOARD" : boards.length > 0 ? "BOARD ONLY" : "NOT CONNECTED"}
         </span>
       </div>
 
       <Section>
         <span style={sectionLabel}>SCHEDULE</span>
         <p style={bodyText}>
-          Automatic. The server checks your board every 15 minutes and imports anything new -
-          nothing to keep open.
+          {autoSync
+            ? "Automatic daily sync is on - the server checks your boards once a day and imports anything new."
+            : "Automatic sync is off. Use the per-board sync buttons below, or turn on a once-a-day automatic check."}
         </p>
+        <button
+          onClick={() => void setSchedule(autoSync ? "off" : "daily")}
+          disabled={scheduleBusy || status === null}
+          style={
+            autoSync
+              ? { ...underlineButton, opacity: scheduleBusy ? 0.45 : 1 }
+              : { ...azureButton, opacity: scheduleBusy || status === null ? 0.45 : 1 }
+          }
+        >
+          {autoSync ? "TURN OFF DAILY SYNC" : "Turn on daily sync"}
+        </button>
         <span style={monoMuted}>
           {lastSync !== null
             ? `LAST SYNC ${new Date(lastSync)
@@ -119,13 +158,25 @@ export default function SettingsRoute(): React.ReactElement {
 
       <Section>
         <span style={sectionLabel}>MANUAL SYNC</span>
-        <button
-          onClick={() => void syncSessions()}
-          disabled={syncRequested}
-          style={{ ...azureButton, opacity: syncRequested ? 0.45 : 1 }}
-        >
-          {syncRequested ? "Syncing…" : "Sync sessions"}
-        </button>
+        {activeBoards.length === 0 ? (
+          <p style={bodyText}>Connect a board below and its sync button appears here.</p>
+        ) : (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {activeBoards.map((b) => (
+              <button
+                key={b.board}
+                onClick={() => void syncBoard(b.board)}
+                disabled={syncingBoard !== null}
+                style={{
+                  ...azureButton,
+                  opacity: syncingBoard !== null ? 0.45 : 1,
+                }}
+              >
+                {syncingBoard === b.board ? "Syncing…" : `Sync ${boardLabelOf(b.board)}`}
+              </button>
+            ))}
+          </div>
+        )}
         {message !== null && (
           <span
             style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(64,63,76,0.6)" }}
@@ -137,7 +188,7 @@ export default function SettingsRoute(): React.ReactElement {
 
       <Section>
         <span style={sectionLabel}>STRAVA POSTING</span>
-        {strava === null || strava.status !== "active" ? (
+        {!stravaActive ? (
           <>
             <p style={bodyText}>
               Strava is not connected. Connect it and, when you choose, sessions post to your feed
@@ -147,52 +198,61 @@ export default function SettingsRoute(): React.ReactElement {
               Connect Strava
             </Link>
           </>
+        ) : activeBoards.length === 0 ? (
+          <p style={bodyText}>Connect a board and choose per board what gets posted.</p>
         ) : (
-          <>
-            <p style={bodyText}>
-              {postingOn
-                ? "Posting is on - each session becomes one Rock Climbing activity."
-                : "Connected, but nothing posts until you say so."}
-            </p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {postingOn ? (
-                <button
-                  onClick={() => void setPosting("off")}
-                  disabled={postingBusy}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {activeBoards.map((b, i) => (
+              <div
+                key={b.board}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  padding: "12px 0",
+                  borderTop: i > 0 ? "1px solid var(--line-on-light)" : "none",
+                }}
+              >
+                <div
                   style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    letterSpacing: "0.06em",
-                    color: "rgba(64,63,76,0.6)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    padding: 0,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
                   }}
                 >
-                  TURN OFF
-                </button>
-              ) : (
-                <>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{boardLabelOf(b.board)}</span>
+                  <span style={monoMuted}>{b.postingEnabled ? "POSTING ON" : "POSTING OFF"}</span>
+                </div>
+                {b.postingEnabled ? (
                   <button
-                    onClick={() => void setPosting("new")}
-                    disabled={postingBusy}
-                    style={azureButton}
+                    onClick={() => void setPosting(b.board, "off")}
+                    disabled={postingBoard !== null}
+                    style={underlineButton}
                   >
-                    Post new sessions
+                    TURN OFF
                   </button>
-                  <button
-                    onClick={() => void setPosting("all")}
-                    disabled={postingBusy}
-                    style={{ ...azureButton, background: "var(--bs-watermelon-ink)" }}
-                  >
-                    Post full history
-                  </button>
-                </>
-              )}
-            </div>
-          </>
+                ) : (
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => void setPosting(b.board, "new")}
+                      disabled={postingBoard !== null}
+                      style={azureButton}
+                    >
+                      Post new sessions
+                    </button>
+                    <button
+                      onClick={() => void setPosting(b.board, "all")}
+                      disabled={postingBoard !== null}
+                      style={{ ...azureButton, background: "var(--bs-watermelon-ink)" }}
+                    >
+                      Post full history
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </Section>
 
@@ -229,6 +289,35 @@ export default function SettingsRoute(): React.ReactElement {
               {strava === null ? "Connect" : "Re-link"}
             </Link>
           </div>
+          {boards.map((b) => (
+            <div
+              key={b.board}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 0",
+                borderTop: "1px solid var(--line-on-light)",
+              }}
+            >
+              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{boardLabelOf(b.board)}</span>
+                <span style={monoMuted}>{`AURORA TOKEN · ${b.status.toUpperCase()}`}</span>
+              </span>
+              <Link
+                to="/app/setup?add=board"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: "rgba(64,63,76,0.6)",
+                  textDecoration: "underline",
+                }}
+              >
+                Re-link
+              </Link>
+            </div>
+          ))}
           <div
             style={{
               display: "flex",
@@ -241,14 +330,14 @@ export default function SettingsRoute(): React.ReactElement {
           >
             <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>
-                {board !== null ? (BOARD_LABELS[board.board] ?? "Board") : "Board"}
+                {boards.length === 0 ? "Board" : "Another board"}
               </span>
               <span style={monoMuted}>
-                {board === null ? "NOT LINKED" : `AURORA TOKEN · ${board.status.toUpperCase()}`}
+                {boards.length === 0 ? "NOT LINKED" : "TENSION, KILTER, AND MORE"}
               </span>
             </span>
             <Link
-              to="/app/setup"
+              to="/app/setup?add=board"
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 11,
@@ -256,7 +345,7 @@ export default function SettingsRoute(): React.ReactElement {
                 textDecoration: "underline",
               }}
             >
-              {board === null ? "Link" : "Re-link"}
+              {boards.length === 0 ? "Link" : "Connect"}
             </Link>
           </div>
         </div>

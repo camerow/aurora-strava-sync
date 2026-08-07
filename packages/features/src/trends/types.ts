@@ -1,5 +1,16 @@
 export type TrendMetric = "volume" | "pyramid" | "hardest" | "flash" | "avggrade";
 
+export type TrendRange = "1m" | "3m" | "6m" | "ytd" | "1y" | "all";
+
+export const TREND_RANGES: Array<{ value: TrendRange; label: string }> = [
+  { value: "1m", label: "1M" },
+  { value: "3m", label: "3M" },
+  { value: "6m", label: "6M" },
+  { value: "ytd", label: "YTD" },
+  { value: "1y", label: "1Y" },
+  { value: "all", label: "ALL" },
+];
+
 export type TrendBarVM = {
   height: number;
   peak: boolean;

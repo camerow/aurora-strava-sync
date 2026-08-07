@@ -1,9 +1,11 @@
 import React from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, redirect, useLoaderData, useRevalidator } from "react-router";
+import { Link, redirect, useLoaderData, useRevalidator } from "react-router";
 import type { ConnectionStatus, SessionRow } from "@sendtally/api-client";
+import { BOARD_LABELS } from "@sendtally/features/session-detail";
+import { sessionBadge } from "@sendtally/features/sessions";
 import { requireApi } from "../lib/api.server";
-import { SessionRowItem, type SessionBadge } from "../sessions/components/SessionRowItem";
+import { SessionRowItem } from "../sessions/components/SessionRowItem";
 
 type LoaderData = {
   status: ConnectionStatus;
@@ -13,7 +15,7 @@ type LoaderData = {
 export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
   const api = await requireApi(args);
   const status = await api.status();
-  if (status.board?.status !== "active") {
+  if (!status.boards.some((b) => b.status === "active")) {
     throw redirect("/app/setup");
   }
   const { sessions } = await api.sessions();
@@ -23,23 +25,10 @@ export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
 export async function action(args: ActionFunctionArgs): Promise<{ ok: boolean }> {
   const api = await requireApi(args);
   const form = await args.request.formData();
-  const intent = form.get("intent");
-  if (intent === "posting-new") await api.setStravaPosting("new");
-  else if (intent === "posting-all") await api.setStravaPosting("all");
-  else if (intent === "posting-off") await api.setStravaPosting("off");
-  else await api.syncNow();
+  const board = form.get("board");
+  await api.syncNow(typeof board === "string" && board !== "" ? board : undefined);
   return { ok: true };
 }
-
-const BOARD_LABELS: Record<string, string> = {
-  tension: "Tension Board",
-  kilter: "Kilter Board",
-  grasshopper: "Grasshopper Board",
-  decoy: "Decoy Board",
-  touchstone: "Touchstone Board",
-  soill: "So iLL Board",
-  aurora: "Aurora Board",
-};
 
 const bannerButton: React.CSSProperties = {
   fontFamily: "var(--font-sans)",
@@ -54,25 +43,32 @@ const bannerButton: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-function badgeFor(session: SessionRow, status: ConnectionStatus): SessionBadge {
-  if (session.strava_activity_id !== null) return "synced";
-  const strava = status.strava;
-  if (strava === null || strava.status !== "active" || !strava.postingEnabled) return "logged";
-  if (strava.postSince !== null) {
-    const cutoff = new Date(`${strava.postSince.slice(0, 10)}T00:00:00Z`);
-    if (new Date(session.start_at) < cutoff) return "logged";
-  }
-  return "pending";
-}
+const chipStyle = (active: boolean): React.CSSProperties => ({
+  fontFamily: "var(--font-mono)",
+  fontWeight: 500,
+  fontSize: 11,
+  letterSpacing: "0.06em",
+  padding: "7px 12px",
+  borderRadius: "var(--radius-pill)",
+  cursor: "pointer",
+  background: active ? "var(--bs-gold)" : "transparent",
+  color: active ? "var(--bs-gunmetal)" : "rgba(64,63,76,0.65)",
+  border: active ? "1px solid var(--bs-gold)" : "1px solid rgba(64,63,76,0.18)",
+});
 
 export default function Sessions(): React.ReactElement {
   const { status, sessions } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
-  const boardLabel = BOARD_LABELS[status.board?.board ?? ""] ?? "Board";
   const [syncRequested, setSyncRequested] = React.useState(false);
+  const [boardFilter, setBoardFilter] = React.useState<string | null>(null);
   const importing = status.sync?.lastSyncedAt == null;
   const stravaConnected = status.strava?.status === "active";
-  const postingOn = stravaConnected && status.strava?.postingEnabled === true;
+  const anyPostingOn = stravaConnected && status.boards.some((b) => b.postingEnabled);
+
+  const boardsInSessions = [
+    ...new Set(sessions.map((s) => s.board).filter((b): b is string => b !== null)),
+  ];
+  const visible = boardFilter === null ? sessions : sessions.filter((s) => s.board === boardFilter);
 
   React.useEffect(() => {
     if (!importing) return;
@@ -114,30 +110,9 @@ export default function Sessions(): React.ReactElement {
             letterSpacing: "0.06em",
           }}
         >
-          {sessions.length === 1 ? "1 SESSION" : `${sessions.length} SESSIONS`} ·{" "}
-          {boardLabel.toUpperCase()}
+          {visible.length === 1 ? "1 SESSION" : `${visible.length} SESSIONS`}
         </span>
         <div style={{ flex: 1 }} />
-        {postingOn && (
-          <Form method="post">
-            <input type="hidden" name="intent" value="posting-off" />
-            <button
-              type="submit"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.06em",
-                color: "rgba(64,63,76,0.6)",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
-              STRAVA POSTING ON · TURN OFF
-            </button>
-          </Form>
-        )}
         <button
           onClick={() => void syncNow()}
           disabled={syncRequested}
@@ -154,9 +129,21 @@ export default function Sessions(): React.ReactElement {
             opacity: syncRequested ? 0.45 : 1,
           }}
         >
-          {syncRequested ? "Sync queued…" : "Sync sessions"}
+          {syncRequested ? "Sync queued…" : "Sync all boards"}
         </button>
       </div>
+      {boardsInSessions.length > 1 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 18 }}>
+          <button onClick={() => setBoardFilter(null)} style={chipStyle(boardFilter === null)}>
+            ALL BOARDS
+          </button>
+          {boardsInSessions.map((b) => (
+            <button key={b} onClick={() => setBoardFilter(b)} style={chipStyle(boardFilter === b)}>
+              {(BOARD_LABELS[b] ?? b).toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
       {importing && (
         <div
           style={{
@@ -216,7 +203,7 @@ export default function Sessions(): React.ReactElement {
           </a>
         </div>
       )}
-      {stravaConnected && !postingOn && (
+      {stravaConnected && !anyPostingOn && (
         <div
           style={{
             display: "flex",
@@ -238,39 +225,25 @@ export default function Sessions(): React.ReactElement {
               color: "var(--text-on-light)",
             }}
           >
-            Strava is connected but nothing posts until you say so. Choose what to share - each
-            session becomes one Rock Climbing activity.
+            Strava is connected but nothing posts until you say so. Choose per board what to share -
+            each session becomes one Rock Climbing activity.
           </span>
-          <div style={{ display: "flex", gap: 10 }}>
-            <Form method="post">
-              <input type="hidden" name="intent" value="posting-new" />
-              <button type="submit" style={bannerButton}>
-                Post new sessions
-              </button>
-            </Form>
-            <Form method="post">
-              <input type="hidden" name="intent" value="posting-all" />
-              <button
-                type="submit"
-                style={{ ...bannerButton, background: "var(--bs-watermelon-ink)" }}
-              >
-                Post full history
-              </button>
-            </Form>
-          </div>
+          <Link to="/app/settings" style={{ ...bannerButton, textDecoration: "none" }}>
+            Choose what posts
+          </Link>
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22 }}>
-        {sessions.map((s) => (
+        {visible.map((s) => (
           <SessionRowItem
             key={s.fingerprint}
             session={s}
-            boardLabel={boardLabel}
-            badge={badgeFor(s, status)}
+            boardLabel={BOARD_LABELS[s.board ?? ""] ?? "Board"}
+            badge={sessionBadge(s, status)}
           />
         ))}
       </div>
-      {sessions.length === 0 && !importing && (
+      {visible.length === 0 && !importing && (
         <div
           style={{
             padding: 36,
@@ -281,7 +254,7 @@ export default function Sessions(): React.ReactElement {
           }}
         >
           No sessions yet. Climb, log it in the board app, and it shows up here within a couple of
-          hours - or hit Sync sessions.
+          hours - or hit Sync all boards.
         </div>
       )}
     </div>

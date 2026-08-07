@@ -3,31 +3,12 @@ import React from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { ConnectionStatus, SessionRow } from "@sendtally/api-client";
+import { BOARD_LABELS } from "@sendtally/features/session-detail";
+import { sessionBadge } from "@sendtally/features/sessions";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 import { Logo } from "../../components/Logo";
-import { SessionCard, type SessionBadge } from "../../features/sessions/SessionCard";
+import { SessionCard } from "../../features/sessions/SessionCard";
 import { useApi } from "../../lib/api";
-
-const BOARD_LABELS: Record<string, string> = {
-  tension: "Tension Board",
-  kilter: "Kilter Board",
-  grasshopper: "Grasshopper Board",
-  decoy: "Decoy Board",
-  touchstone: "Touchstone Board",
-  soill: "So iLL Board",
-  aurora: "Aurora Board",
-};
-
-function badgeFor(session: SessionRow, status: ConnectionStatus | null): SessionBadge {
-  if (session.strava_activity_id !== null) return "synced";
-  const strava = status?.strava;
-  if (strava == null || strava.status !== "active" || !strava.postingEnabled) return "logged";
-  if (strava.postSince !== null) {
-    const cutoff = new Date(`${strava.postSince.slice(0, 10)}T00:00:00Z`);
-    if (new Date(session.start_at) < cutoff) return "logged";
-  }
-  return "pending";
-}
 
 export default function Sessions(): React.ReactElement {
   const api = useApi();
@@ -35,6 +16,7 @@ export default function Sessions(): React.ReactElement {
   const [sessions, setSessions] = React.useState<SessionRow[] | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [boardFilter, setBoardFilter] = React.useState<string | null>(null);
 
   const load = React.useCallback(async (): Promise<void> => {
     try {
@@ -59,16 +41,24 @@ export default function Sessions(): React.ReactElement {
     return () => clearInterval(timer);
   }, [importing, load]);
 
-  const boardLabel = BOARD_LABELS[status?.board?.board ?? ""] ?? "Board";
+  const boardsInSessions = [
+    ...new Set((sessions ?? []).map((s) => s.board).filter((b): b is string => b !== null)),
+  ];
+  const visible =
+    sessions === null
+      ? []
+      : boardFilter === null
+        ? sessions
+        : sessions.filter((s) => s.board === boardFilter);
   const caption =
     sessions === null
       ? "LOADING…"
-      : `${sessions.length} ${sessions.length === 1 ? "SESSION" : "SESSIONS"} · ${boardLabel.toUpperCase()}`;
+      : `${visible.length} ${visible.length === 1 ? "SESSION" : "SESSIONS"}`;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>
       <FlatList
-        data={sessions ?? []}
+        data={visible}
         keyExtractor={(s) => s.fingerprint}
         contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24, gap: 9 }}
         refreshControl={
@@ -106,6 +96,38 @@ export default function Sessions(): React.ReactElement {
                 {caption}
               </Text>
             </View>
+            {boardsInSessions.length > 1 && (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {[null, ...boardsInSessions].map((b) => {
+                  const active = boardFilter === b;
+                  return (
+                    <Pressable
+                      key={b ?? "all"}
+                      onPress={() => setBoardFilter(b)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
+                        borderRadius: radius.pill,
+                        borderWidth: 1,
+                        borderColor: active ? colors.gold : "rgba(64,63,76,0.18)",
+                        backgroundColor: active ? colors.gold : "transparent",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: fonts.monoMedium,
+                          fontSize: 10,
+                          letterSpacing: 0.6,
+                          color: active ? colors.gunmetal : "rgba(64,63,76,0.65)",
+                        }}
+                      >
+                        {b === null ? "ALL BOARDS" : (BOARD_LABELS[b] ?? b).toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
             {importing && (
               <View
                 style={{
@@ -161,11 +183,15 @@ export default function Sessions(): React.ReactElement {
             onPress={() =>
               router.push({
                 pathname: "/session/[fingerprint]",
-                params: { fingerprint: item.fingerprint, board: status?.board?.board ?? "" },
+                params: { fingerprint: item.fingerprint },
               })
             }
           >
-            <SessionCard session={item} boardLabel={boardLabel} badge={badgeFor(item, status)} />
+            <SessionCard
+              session={item}
+              boardLabel={BOARD_LABELS[item.board ?? ""] ?? "Board"}
+              badge={sessionBadge(item, status)}
+            />
           </Pressable>
         )}
       />

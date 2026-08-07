@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router";
 import type { SessionRow } from "@sendtally/api-client";
+import { SESSION_BADGE_LABELS, type SessionBadge } from "@sendtally/features/sessions";
 
 function durationLabel(startAt: string, endAt: string): string {
   const minutes = Math.max(0, Math.round((Date.parse(endAt) - Date.parse(startAt)) / 60_000));
@@ -9,21 +10,16 @@ function durationLabel(startAt: string, endAt: string): string {
   return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
 }
 
-export type SessionBadge = "synced" | "pending" | "logged";
-
-const BADGE_STYLES: Record<SessionBadge, { label: string; border: string; color: string }> = {
-  synced: {
-    label: "SYNCED",
+const BADGE_STYLES: Record<SessionBadge, { border: string; color: string }> = {
+  on_strava: {
     border: "1px solid rgba(27,98,206,0.4)",
     color: "var(--bs-azure-ink)",
   },
-  pending: {
-    label: "PENDING",
+  will_post: {
     border: "1px solid rgba(64,63,76,0.25)",
     color: "rgba(64,63,76,0.6)",
   },
-  logged: {
-    label: "LOGGED",
+  not_posted: {
     border: "1px solid rgba(64,63,76,0.18)",
     color: "rgba(64,63,76,0.45)",
   },
@@ -111,7 +107,7 @@ export function SessionRowItem({
           color: badgeStyle.color,
         }}
       >
-        {badgeStyle.label}
+        {SESSION_BADGE_LABELS[badge]}
       </span>
       <span
         style={{
