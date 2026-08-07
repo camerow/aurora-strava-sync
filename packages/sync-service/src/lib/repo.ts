@@ -1,27 +1,24 @@
-import type { ClimbRow, ClimbStat } from "./aurora";
+import { and, desc, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
+import { drizzle } from "drizzle-orm/d1";
 import { vFromDisplay } from "@sendtally/core";
+import type { ClimbRow, ClimbStat } from "./aurora";
+import {
+  boardClimbNames,
+  boardClimbStats,
+  boardConnections,
+  boardCursors,
+  sessions,
+  stravaConnections,
+  syncState,
+  users,
+} from "../db/schema";
 
-export type UserRow = { id: string; timezone: string; auto_sync: number };
+export type UserRow = typeof users.$inferSelect;
 
-export type BoardConnectionRow = {
-  user_id: string;
-  board: string;
-  board_user_id: number;
-  token_ciphertext: string;
-  status: string;
-  sync_since: string | null;
-  posting_enabled: number;
-  post_since: string | null;
-};
+export type BoardConnectionRow = typeof boardConnections.$inferSelect;
 
-export type StravaConnectionRow = {
-  user_id: string;
-  athlete_id: number;
-  access_token_ciphertext: string;
-  refresh_token_ciphertext: string;
-  expires_at: number;
-  status: string;
-};
+export type StravaConnectionRow = typeof stravaConnections.$inferSelect;
 
 export type SessionRow = {
   fingerprint: string;
@@ -36,78 +33,83 @@ export type SessionRow = {
   posted_at: string | null;
 };
 
+const sessionListColumns = {
+  fingerprint: sessions.fingerprint,
+  board: sessions.board,
+  start_at: sessions.start_at,
+  end_at: sessions.end_at,
+  climb_count: sessions.climb_count,
+  top_grade: sessions.top_grade,
+  rpe: sessions.rpe,
+  title: sessions.title,
+  strava_activity_id: sessions.strava_activity_id,
+  posted_at: sessions.posted_at,
+};
+
 export async function upsertUser(db: D1Database, id: string, timezone: string): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO users (id, timezone, created_at) VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET timezone = excluded.timezone`
-    )
-    .bind(id, timezone, new Date().toISOString())
-    .run();
+  await drizzle(db)
+    .insert(users)
+    .values({ id, timezone, created_at: new Date().toISOString() })
+    .onConflictDoUpdate({ target: users.id, set: { timezone } });
 }
 
 export async function ensureUser(db: D1Database, id: string): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', ?) ON CONFLICT(id) DO NOTHING`
-    )
-    .bind(id, new Date().toISOString())
-    .run();
+  await drizzle(db)
+    .insert(users)
+    .values({ id, created_at: new Date().toISOString() })
+    .onConflictDoNothing();
 }
 
 export async function getUser(db: D1Database, id: string): Promise<UserRow | null> {
-  return db
-    .prepare(`SELECT id, timezone, auto_sync FROM users WHERE id = ?`)
-    .bind(id)
-    .first<UserRow>();
+  const row = await drizzle(db).select().from(users).where(eq(users.id, id)).get();
+  return row ?? null;
 }
 
 export async function setAutoSync(db: D1Database, id: string, enabled: boolean): Promise<void> {
-  await db
-    .prepare(`UPDATE users SET auto_sync = ? WHERE id = ?`)
-    .bind(enabled ? 1 : 0, id)
-    .run();
+  await drizzle(db)
+    .update(users)
+    .set({ auto_sync: enabled ? 1 : 0 })
+    .where(eq(users.id, id));
 }
+
+export type BoardConnectionInput = {
+  user_id: string;
+  board: string;
+  board_user_id: number;
+  token_ciphertext: string;
+  sync_since: string | null;
+};
 
 export async function upsertBoardConnection(
   db: D1Database,
-  row: Omit<BoardConnectionRow, "status" | "posting_enabled" | "post_since">
+  row: BoardConnectionInput
 ): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
-       VALUES (?, ?, ?, ?, 'active', ?, ?)
-       ON CONFLICT(user_id, board) DO UPDATE SET
-         board_user_id = excluded.board_user_id,
-         token_ciphertext = excluded.token_ciphertext,
-         status = 'active',
-         sync_since = excluded.sync_since,
-         connected_at = excluded.connected_at`
-    )
-    .bind(
-      row.user_id,
-      row.board,
-      row.board_user_id,
-      row.token_ciphertext,
-      row.sync_since,
-      new Date().toISOString()
-    )
-    .run();
+  const connected_at = new Date().toISOString();
+  await drizzle(db)
+    .insert(boardConnections)
+    .values({ ...row, status: "active", connected_at })
+    .onConflictDoUpdate({
+      target: [boardConnections.user_id, boardConnections.board],
+      set: {
+        board_user_id: row.board_user_id,
+        token_ciphertext: row.token_ciphertext,
+        status: "active",
+        sync_since: row.sync_since,
+        connected_at,
+      },
+    });
 }
-
-const BOARD_CONNECTION_COLS = `user_id, board, board_user_id, token_ciphertext, status, sync_since, posting_enabled, post_since`;
 
 export async function listBoardConnections(
   db: D1Database,
   userId: string
 ): Promise<BoardConnectionRow[]> {
-  const rows = await db
-    .prepare(
-      `SELECT ${BOARD_CONNECTION_COLS} FROM board_connections WHERE user_id = ? ORDER BY connected_at`
-    )
-    .bind(userId)
-    .all<BoardConnectionRow>();
-  return rows.results;
+  return drizzle(db)
+    .select()
+    .from(boardConnections)
+    .where(eq(boardConnections.user_id, userId))
+    .orderBy(boardConnections.connected_at)
+    .all();
 }
 
 export async function getBoardConnection(
@@ -115,12 +117,12 @@ export async function getBoardConnection(
   userId: string,
   board: string
 ): Promise<BoardConnectionRow | null> {
-  return db
-    .prepare(
-      `SELECT ${BOARD_CONNECTION_COLS} FROM board_connections WHERE user_id = ? AND board = ?`
-    )
-    .bind(userId, board)
-    .first<BoardConnectionRow>();
+  const row = await drizzle(db)
+    .select()
+    .from(boardConnections)
+    .where(and(eq(boardConnections.user_id, userId), eq(boardConnections.board, board)))
+    .get();
+  return row ?? null;
 }
 
 export async function markBoardConnectionDead(
@@ -128,10 +130,10 @@ export async function markBoardConnectionDead(
   userId: string,
   board: string
 ): Promise<void> {
-  await db
-    .prepare(`UPDATE board_connections SET status = 'dead' WHERE user_id = ? AND board = ?`)
-    .bind(userId, board)
-    .run();
+  await drizzle(db)
+    .update(boardConnections)
+    .set({ status: "dead" })
+    .where(and(eq(boardConnections.user_id, userId), eq(boardConnections.board, board)));
 }
 
 export async function setBoardPosting(
@@ -141,52 +143,51 @@ export async function setBoardPosting(
   enabled: boolean,
   postSince: string | null
 ): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE board_connections SET posting_enabled = ?, post_since = ? WHERE user_id = ? AND board = ?`
-    )
-    .bind(enabled ? 1 : 0, postSince, userId, board)
-    .run();
+  await drizzle(db)
+    .update(boardConnections)
+    .set({ posting_enabled: enabled ? 1 : 0, post_since: postSince })
+    .where(and(eq(boardConnections.user_id, userId), eq(boardConnections.board, board)));
 }
+
+export type StravaConnectionInput = {
+  user_id: string;
+  athlete_id: number;
+  access_token_ciphertext: string;
+  refresh_token_ciphertext: string;
+  expires_at: number;
+};
 
 export async function upsertStravaConnection(
   db: D1Database,
-  row: Omit<StravaConnectionRow, "status">
+  row: StravaConnectionInput
 ): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
-       VALUES (?, ?, ?, ?, ?, 'active', ?)
-       ON CONFLICT(user_id) DO UPDATE SET
-         athlete_id = excluded.athlete_id,
-         access_token_ciphertext = excluded.access_token_ciphertext,
-         refresh_token_ciphertext = excluded.refresh_token_ciphertext,
-         expires_at = excluded.expires_at,
-         status = 'active',
-         connected_at = excluded.connected_at`
-    )
-    .bind(
-      row.user_id,
-      row.athlete_id,
-      row.access_token_ciphertext,
-      row.refresh_token_ciphertext,
-      row.expires_at,
-      new Date().toISOString()
-    )
-    .run();
+  const connected_at = new Date().toISOString();
+  await drizzle(db)
+    .insert(stravaConnections)
+    .values({ ...row, status: "active", connected_at })
+    .onConflictDoUpdate({
+      target: stravaConnections.user_id,
+      set: {
+        athlete_id: row.athlete_id,
+        access_token_ciphertext: row.access_token_ciphertext,
+        refresh_token_ciphertext: row.refresh_token_ciphertext,
+        expires_at: row.expires_at,
+        status: "active",
+        connected_at,
+      },
+    });
 }
 
 export async function getStravaConnection(
   db: D1Database,
   userId: string
 ): Promise<StravaConnectionRow | null> {
-  return db
-    .prepare(
-      `SELECT user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status
-       FROM strava_connections WHERE user_id = ?`
-    )
-    .bind(userId)
-    .first<StravaConnectionRow>();
+  const row = await drizzle(db)
+    .select()
+    .from(stravaConnections)
+    .where(eq(stravaConnections.user_id, userId))
+    .get();
+  return row ?? null;
 }
 
 export async function updateStravaTokens(
@@ -196,24 +197,24 @@ export async function updateStravaTokens(
   refreshTokenCiphertext: string,
   expiresAt: number
 ): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE strava_connections
-       SET access_token_ciphertext = ?, refresh_token_ciphertext = ?, expires_at = ?
-       WHERE user_id = ?`
-    )
-    .bind(accessTokenCiphertext, refreshTokenCiphertext, expiresAt, userId)
-    .run();
+  await drizzle(db)
+    .update(stravaConnections)
+    .set({
+      access_token_ciphertext: accessTokenCiphertext,
+      refresh_token_ciphertext: refreshTokenCiphertext,
+      expires_at: expiresAt,
+    })
+    .where(eq(stravaConnections.user_id, userId));
 }
 
 export async function markStravaConnectionDeadByAthlete(
   db: D1Database,
   athleteId: number
 ): Promise<void> {
-  await db
-    .prepare(`UPDATE strava_connections SET status = 'dead' WHERE athlete_id = ?`)
-    .bind(athleteId)
-    .run();
+  await drizzle(db)
+    .update(stravaConnections)
+    .set({ status: "dead" })
+    .where(eq(stravaConnections.athlete_id, athleteId));
 }
 
 export type ScoredSessionInput = {
@@ -234,35 +235,23 @@ export async function upsertScoredSession(
   userId: string,
   s: ScoredSessionInput
 ): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO sessions (user_id, fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json, strava_activity_id, posted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
-       ON CONFLICT(user_id, fingerprint) DO UPDATE SET
-         board = excluded.board,
-         start_at = excluded.start_at,
-         end_at = excluded.end_at,
-         climb_count = excluded.climb_count,
-         top_grade = excluded.top_grade,
-         rpe = excluded.rpe,
-         title = excluded.title,
-         summary = excluded.summary,
-         climbs_json = excluded.climbs_json`
-    )
-    .bind(
-      userId,
-      s.fingerprint,
-      s.board,
-      s.start_at,
-      s.end_at,
-      s.climb_count,
-      s.top_grade,
-      s.rpe,
-      s.title,
-      s.summary,
-      s.climbs_json
-    )
-    .run();
+  await drizzle(db)
+    .insert(sessions)
+    .values({ user_id: userId, ...s })
+    .onConflictDoUpdate({
+      target: [sessions.user_id, sessions.fingerprint],
+      set: {
+        board: s.board,
+        start_at: s.start_at,
+        end_at: s.end_at,
+        climb_count: s.climb_count,
+        top_grade: s.top_grade,
+        rpe: s.rpe,
+        title: s.title,
+        summary: s.summary,
+        climbs_json: s.climbs_json,
+      },
+    });
 }
 
 export async function markSessionPosted(
@@ -271,25 +260,22 @@ export async function markSessionPosted(
   fp: string,
   stravaActivityId: number
 ): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE sessions SET strava_activity_id = ?, posted_at = ? WHERE user_id = ? AND fingerprint = ?`
-    )
-    .bind(stravaActivityId, new Date().toISOString(), userId, fp)
-    .run();
+  await drizzle(db)
+    .update(sessions)
+    .set({ strava_activity_id: stravaActivityId, posted_at: new Date().toISOString() })
+    .where(and(eq(sessions.user_id, userId), eq(sessions.fingerprint, fp)));
 }
 
 export async function postedSessionFingerprints(
   db: D1Database,
   userId: string
 ): Promise<Set<string>> {
-  const rows = await db
-    .prepare(
-      `SELECT fingerprint FROM sessions WHERE user_id = ? AND strava_activity_id IS NOT NULL`
-    )
-    .bind(userId)
-    .all<{ fingerprint: string }>();
-  return new Set(rows.results.map((r) => r.fingerprint));
+  const rows = await drizzle(db)
+    .select({ fingerprint: sessions.fingerprint })
+    .from(sessions)
+    .where(and(eq(sessions.user_id, userId), isNotNull(sessions.strava_activity_id)))
+    .all();
+  return new Set(rows.map((r) => r.fingerprint));
 }
 
 export async function listSessions(
@@ -298,14 +284,15 @@ export async function listSessions(
   limit: number,
   includeClimbs = false
 ): Promise<Array<SessionRow & { climbs_json?: string | null }>> {
-  const cols = includeClimbs
-    ? "fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json"
-    : "fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at";
-  const rows = await db
-    .prepare(`SELECT ${cols} FROM sessions WHERE user_id = ? ORDER BY start_at DESC LIMIT ?`)
-    .bind(userId, limit)
-    .all<SessionRow & { climbs_json?: string | null }>();
-  return rows.results;
+  const d = drizzle(db);
+  const query = includeClimbs
+    ? d.select({ ...sessionListColumns, climbs_json: sessions.climbs_json }).from(sessions)
+    : d.select(sessionListColumns).from(sessions);
+  return query
+    .where(eq(sessions.user_id, userId))
+    .orderBy(desc(sessions.start_at))
+    .limit(limit)
+    .all();
 }
 
 export async function getSession(
@@ -313,32 +300,32 @@ export async function getSession(
   userId: string,
   fingerprint: string
 ): Promise<(SessionRow & { climbs_json: string | null }) | null> {
-  return db
-    .prepare(
-      `SELECT fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json
-       FROM sessions WHERE user_id = ? AND fingerprint = ?`
-    )
-    .bind(userId, fingerprint)
-    .first<SessionRow & { climbs_json: string | null }>();
+  const row = await drizzle(db)
+    .select({ ...sessionListColumns, climbs_json: sessions.climbs_json })
+    .from(sessions)
+    .where(and(eq(sessions.user_id, userId), eq(sessions.fingerprint, fingerprint)))
+    .get();
+  return row ?? null;
 }
+
+const IN_CHUNK = 90;
 
 export async function climbNamesFor(
   db: D1Database,
   board: string,
   climbUuids: string[]
 ): Promise<Map<string, string>> {
+  const d = drizzle(db);
   const out = new Map<string, string>();
   const unique = [...new Set(climbUuids)];
-  for (let i = 0; i < unique.length; i += 90) {
-    const chunk = unique.slice(i, i + 90);
-    const placeholders = chunk.map(() => "?").join(",");
-    const rows = await db
-      .prepare(
-        `SELECT climb_uuid, name FROM board_climb_names WHERE board = ? AND climb_uuid IN (${placeholders})`
-      )
-      .bind(board, ...chunk)
-      .all<{ climb_uuid: string; name: string }>();
-    for (const r of rows.results) out.set(r.climb_uuid, r.name);
+  for (let i = 0; i < unique.length; i += IN_CHUNK) {
+    const chunk = unique.slice(i, i + IN_CHUNK);
+    const rows = await d
+      .select({ climb_uuid: boardClimbNames.climb_uuid, name: boardClimbNames.name })
+      .from(boardClimbNames)
+      .where(and(eq(boardClimbNames.board, board), inArray(boardClimbNames.climb_uuid, chunk)))
+      .all();
+    for (const r of rows) out.set(r.climb_uuid, r.name);
   }
   return out;
 }
@@ -348,18 +335,21 @@ export async function climbVGradesFor(
   board: string,
   climbUuids: string[]
 ): Promise<Map<string, number>> {
+  const d = drizzle(db);
   const out = new Map<string, number>();
   const unique = [...new Set(climbUuids)];
-  for (let i = 0; i < unique.length; i += 90) {
-    const chunk = unique.slice(i, i + 90);
-    const placeholders = chunk.map(() => "?").join(",");
-    const rows = await db
-      .prepare(
-        `SELECT climb_uuid, angle, display_difficulty FROM board_climb_stats WHERE board = ? AND climb_uuid IN (${placeholders})`
-      )
-      .bind(board, ...chunk)
-      .all<{ climb_uuid: string; angle: number; display_difficulty: number }>();
-    for (const r of rows.results) {
+  for (let i = 0; i < unique.length; i += IN_CHUNK) {
+    const chunk = unique.slice(i, i + IN_CHUNK);
+    const rows = await d
+      .select({
+        climb_uuid: boardClimbStats.climb_uuid,
+        angle: boardClimbStats.angle,
+        display_difficulty: boardClimbStats.display_difficulty,
+      })
+      .from(boardClimbStats)
+      .where(and(eq(boardClimbStats.board, board), inArray(boardClimbStats.climb_uuid, chunk)))
+      .all();
+    for (const r of rows) {
       const grade = vFromDisplay(r.display_difficulty);
       if (grade !== undefined) out.set(`${r.climb_uuid}:${r.angle}`, grade);
     }
@@ -373,25 +363,37 @@ export async function putClimbData(
   stats: ClimbStat[],
   climbs: ClimbRow[]
 ): Promise<void> {
-  const statements: D1PreparedStatement[] = [];
-  const putStat = db.prepare(
-    `INSERT OR REPLACE INTO board_climb_stats (board, climb_uuid, angle, display_difficulty) VALUES (?, ?, ?, ?)`
-  );
-  const putName = db.prepare(
-    `INSERT OR REPLACE INTO board_climb_names (board, climb_uuid, name) VALUES (?, ?, ?)`
-  );
+  const d = drizzle(db);
+  const statements: BatchItem<"sqlite">[] = [];
   for (const s of stats) {
     const difficulty = s.display_difficulty ?? s.difficulty_average;
     if (s.climb_uuid == null || s.angle == null || difficulty == null) continue;
-    statements.push(putStat.bind(board, s.climb_uuid, s.angle, difficulty));
+    statements.push(
+      d
+        .insert(boardClimbStats)
+        .values({ board, climb_uuid: s.climb_uuid, angle: s.angle, display_difficulty: difficulty })
+        .onConflictDoUpdate({
+          target: [boardClimbStats.board, boardClimbStats.climb_uuid, boardClimbStats.angle],
+          set: { display_difficulty: difficulty },
+        })
+    );
   }
   for (const c of climbs) {
     if (c.uuid == null) continue;
-    statements.push(putName.bind(board, c.uuid, c.name ?? ""));
+    statements.push(
+      d
+        .insert(boardClimbNames)
+        .values({ board, climb_uuid: c.uuid, name: c.name ?? "" })
+        .onConflictDoUpdate({
+          target: [boardClimbNames.board, boardClimbNames.climb_uuid],
+          set: { name: c.name ?? "" },
+        })
+    );
   }
   const BATCH = 100;
   for (let i = 0; i < statements.length; i += BATCH) {
-    await db.batch(statements.slice(i, i + BATCH));
+    const chunk = statements.slice(i, i + BATCH);
+    await d.batch(chunk as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
   }
 }
 
@@ -400,10 +402,11 @@ export async function getBoardCursor(
   board: string,
   table: string
 ): Promise<string> {
-  const row = await db
-    .prepare(`SELECT value FROM board_cursors WHERE board = ? AND table_name = ?`)
-    .bind(board, table)
-    .first<{ value: string }>();
+  const row = await drizzle(db)
+    .select({ value: boardCursors.value })
+    .from(boardCursors)
+    .where(and(eq(boardCursors.board, board), eq(boardCursors.table_name, table)))
+    .get();
   return row?.value ?? "";
 }
 
@@ -413,19 +416,24 @@ export async function setBoardCursor(
   table: string,
   value: string
 ): Promise<void> {
-  await db
-    .prepare(`INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, ?, ?)`)
-    .bind(board, table, value)
-    .run();
+  await drizzle(db)
+    .insert(boardCursors)
+    .values({ board, table_name: table, value })
+    .onConflictDoUpdate({
+      target: [boardCursors.board, boardCursors.table_name],
+      set: { value },
+    });
 }
 
 export type SyncStateRow = { last_synced_at: string | null; last_error: string | null };
 
 export async function getSyncState(db: D1Database, userId: string): Promise<SyncStateRow | null> {
-  return db
-    .prepare(`SELECT last_synced_at, last_error FROM sync_state WHERE user_id = ?`)
-    .bind(userId)
-    .first<SyncStateRow>();
+  const row = await drizzle(db)
+    .select({ last_synced_at: syncState.last_synced_at, last_error: syncState.last_error })
+    .from(syncState)
+    .where(eq(syncState.user_id, userId))
+    .get();
+  return row ?? null;
 }
 
 export async function recordSyncResult(
@@ -433,28 +441,30 @@ export async function recordSyncResult(
   userId: string,
   error: string | null
 ): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO sync_state (user_id, last_synced_at, last_error) VALUES (?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET last_synced_at = excluded.last_synced_at, last_error = excluded.last_error`
-    )
-    .bind(userId, new Date().toISOString(), error)
-    .run();
+  const last_synced_at = new Date().toISOString();
+  await drizzle(db)
+    .insert(syncState)
+    .values({ user_id: userId, last_synced_at, last_error: error })
+    .onConflictDoUpdate({
+      target: syncState.user_id,
+      set: { last_synced_at, last_error: error },
+    });
 }
 
 export async function usersDueForSync(db: D1Database, olderThanMs: number): Promise<string[]> {
   const cutoff = new Date(Date.now() - olderThanMs).toISOString();
-  const rows = await db
-    .prepare(
-      `SELECT DISTINCT bc.user_id AS user_id
-       FROM board_connections bc
-       JOIN users u ON u.id = bc.user_id
-       LEFT JOIN sync_state ss ON ss.user_id = bc.user_id
-       WHERE bc.status = 'active'
-         AND u.auto_sync = 1
-         AND (ss.last_synced_at IS NULL OR ss.last_synced_at < ?)`
+  const rows = await drizzle(db)
+    .selectDistinct({ user_id: boardConnections.user_id })
+    .from(boardConnections)
+    .innerJoin(users, eq(users.id, boardConnections.user_id))
+    .leftJoin(syncState, eq(syncState.user_id, boardConnections.user_id))
+    .where(
+      and(
+        eq(boardConnections.status, "active"),
+        eq(users.auto_sync, 1),
+        or(isNull(syncState.last_synced_at), lt(syncState.last_synced_at, cutoff))
+      )
     )
-    .bind(cutoff)
-    .all<{ user_id: string }>();
-  return rows.results.map((r) => r.user_id);
+    .all();
+  return rows.map((r) => r.user_id);
 }
