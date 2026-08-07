@@ -2,7 +2,7 @@ import React from "react";
 import { Button, Label } from "@sendtally/design";
 import { SessionPreviewCard } from "./SessionPreviewCard";
 
-export function Hero(): React.ReactElement {
+export function Hero({ signedIn }: { signedIn: boolean }): React.ReactElement {
   return (
     <div
       style={{
@@ -50,7 +50,7 @@ export function Hero(): React.ReactElement {
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
           <div>
             <Button variant="primary" href="/app">
-              Create your account →
+              {signedIn ? "Open your sessions →" : "Create your account →"}
             </Button>
           </div>
           <span
@@ -60,7 +60,9 @@ export function Hero(): React.ReactElement {
               color: "rgba(64,63,76,0.58)",
             }}
           >
-            Free · one-time code sign-in · connected in about five minutes
+            {signedIn
+              ? "You are signed in - your logbook is waiting"
+              : "Free · one-time code sign-in · connected in about five minutes"}
           </span>
         </div>
       </div>

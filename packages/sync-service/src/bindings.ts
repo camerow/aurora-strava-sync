@@ -1,5 +1,6 @@
 export type SyncJob = {
   userId: string;
+  board?: string;
 };
 
 export type Env = {

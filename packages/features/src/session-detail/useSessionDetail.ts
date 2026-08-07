@@ -13,11 +13,7 @@ export type SessionDetailFeature = {
   reload: () => void;
 };
 
-export function useSessionDetail(
-  api: SendtallyApi,
-  fingerprint: string,
-  board: string | null
-): SessionDetailFeature {
+export function useSessionDetail(api: SendtallyApi, fingerprint: string): SessionDetailFeature {
   const [filter, setFilter] = React.useState<ClimbFilter>("all");
   const [sort, setSort] = React.useState<ClimbSort>("order");
 
@@ -34,11 +30,11 @@ export function useSessionDetail(
     return {
       status: "ready",
       data: {
-        vm: sessionDetailVM(raw.data, board),
+        vm: sessionDetailVM(raw.data),
         climbs: filterAndSortClimbs(all, filter, sort),
       },
     };
-  }, [raw, board, filter, sort]);
+  }, [raw, filter, sort]);
 
   return { state, filter, setFilter, sort, setSort, reload };
 }

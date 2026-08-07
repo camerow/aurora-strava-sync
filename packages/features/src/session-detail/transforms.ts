@@ -83,7 +83,8 @@ export function filterAndSortClimbs(
   return climbs.filter(FILTERS[filter]).sort(SORTS[sort]);
 }
 
-export function sessionDetailVM(session: SessionDetail, board: string | null): SessionDetailVM {
+export function sessionDetailVM(session: SessionDetail): SessionDetailVM {
+  const board = session.board;
   const climbs = climbVMs(session.climbs);
   const start = new Date(session.start_at);
   const sends = climbs.filter((c) => c.result !== "project");
@@ -151,7 +152,9 @@ export function sessionDetailVM(session: SessionDetail, board: string | null): S
     filterCounts,
     syncLine:
       session.strava_activity_id !== null
-        ? `SYNCED TO STRAVA · ${dateLabel.toUpperCase()}`
+        ? `ON STRAVA · POSTED ${(session.posted_at !== null ? new Date(session.posted_at) : start)
+            .toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+            .toUpperCase()}`
         : "NOT POSTED TO STRAVA",
     stravaUrl:
       session.strava_activity_id !== null

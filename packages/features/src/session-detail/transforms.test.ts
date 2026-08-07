@@ -4,6 +4,7 @@ import { climbVMs, filterAndSortClimbs, sessionDetailVM } from "./transforms";
 
 const detail: SessionDetail = {
   fingerprint: "42-1",
+  board: "tension",
   start_at: "2026-07-01T17:50:00.000Z",
   end_at: "2026-07-01T19:25:00.000Z",
   climb_count: 4,
@@ -70,7 +71,7 @@ describe("filterAndSortClimbs", () => {
 
 describe("sessionDetailVM", () => {
   it("builds the stats grid and grade bars", () => {
-    const vm = sessionDetailVM(detail, "tension");
+    const vm = sessionDetailVM(detail);
     const byLabel = Object.fromEntries(vm.stats.map((s) => [s.label, s.value]));
     expect(byLabel["TIME"]).toBe("1h 35m");
     expect(byLabel["CLIMBS"]).toBe("4");
@@ -79,6 +80,7 @@ describe("sessionDetailVM", () => {
     expect(byLabel["TOP"]).toBe("V7");
     expect(vm.title).toContain("Tension Board");
     expect(vm.stravaUrl).toBe("https://www.strava.com/activities/555");
+    expect(vm.syncLine).toBe("ON STRAVA · POSTED JUL 2");
 
     const v7 = vm.bars.find((b) => b.gradeLabel === "V7");
     expect(v7?.peak).toBe(true);

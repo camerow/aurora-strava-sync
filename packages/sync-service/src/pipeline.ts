@@ -21,34 +21,80 @@ import * as repo from "./lib/repo";
 import { StravaClient, StravaRateLimitedError, StravaUnauthorizedError } from "./lib/strava";
 import { parseAuroraTime, wallClockNow } from "./lib/time";
 
+export type SyncStatus =
+  | "synced"
+  | "no_strava"
+  | "cache_filling"
+  | "rate_limited"
+  | "board_dead"
+  | "strava_dead"
+  | "not_connected";
+
 export type SyncOutcome = {
-  status:
-    | "synced"
-    | "no_strava"
-    | "cache_filling"
-    | "rate_limited"
-    | "board_dead"
-    | "strava_dead"
-    | "not_connected";
+  status: SyncStatus;
   posted: number;
 };
 
 const CACHE_FILL_PAGES = 12;
 const CACHE_REFRESH_PAGES = 4;
 
+const STATUS_PRIORITY: SyncStatus[] = [
+  "rate_limited",
+  "cache_filling",
+  "strava_dead",
+  "board_dead",
+  "synced",
+  "no_strava",
+  "not_connected",
+];
+
 export class CacheFillInProgressError extends Error {}
 
 export async function syncOneUser(
   env: Env,
   userId: string,
-  fetchImpl: typeof fetch = (input, init) => fetch(input, init)
+  fetchImpl: typeof fetch = (input, init) => fetch(input, init),
+  board?: string
 ): Promise<SyncOutcome> {
   const user = await repo.getUser(env.DB, userId);
-  const boardConn = await repo.getBoardConnection(env.DB, userId);
+  if (user === null) return { status: "not_connected", posted: 0 };
+
+  const connections =
+    board === undefined
+      ? await repo.listBoardConnections(env.DB, userId)
+      : [await repo.getBoardConnection(env.DB, userId, board)].filter(
+          (c): c is repo.BoardConnectionRow => c !== null
+        );
+  if (connections.length === 0) return { status: "not_connected", posted: 0 };
+
   const stravaConn = await repo.getStravaConnection(env.DB, userId);
-  if (user === null || boardConn === null) {
-    return { status: "not_connected", posted: 0 };
+  const outcomes: SyncOutcome[] = [];
+  for (const conn of connections) {
+    outcomes.push(await syncOneBoard(env, user, conn, stravaConn, fetchImpl));
   }
+
+  const status = STATUS_PRIORITY.find((s) => outcomes.some((o) => o.status === s)) ?? "synced";
+  const posted = outcomes.reduce((a, o) => a + o.posted, 0);
+  if (status !== "rate_limited" && status !== "cache_filling") {
+    const boardDead = outcomes.some((o) => o.status === "board_dead");
+    const stravaDead = outcomes.some((o) => o.status === "strava_dead");
+    await repo.recordSyncResult(
+      env.DB,
+      userId,
+      stravaDead ? "strava token rejected" : boardDead ? "board token rejected" : null
+    );
+  }
+  return { status, posted };
+}
+
+async function syncOneBoard(
+  env: Env,
+  user: repo.UserRow,
+  boardConn: repo.BoardConnectionRow,
+  stravaConn: repo.StravaConnectionRow | null,
+  fetchImpl: typeof fetch
+): Promise<SyncOutcome> {
+  const userId = user.id;
   if (boardConn.status !== "active") return { status: "board_dead", posted: 0 };
 
   const baseUrl = baseUrlFor(boardConn.board);
@@ -66,8 +112,7 @@ export async function syncOneUser(
       return { status: "cache_filling", posted: 0 };
     }
     if (err instanceof BoardTokenRejectedError) {
-      await repo.markBoardConnectionDead(env.DB, userId);
-      await repo.recordSyncResult(env.DB, userId, "board token rejected");
+      await repo.markBoardConnectionDead(env.DB, userId, boardConn.board);
       return { status: "board_dead", posted: 0 };
     }
     throw err;
@@ -86,6 +131,7 @@ export async function syncOneUser(
   for (const s of scored) {
     await repo.upsertScoredSession(env.DB, userId, {
       fingerprint: s.fp,
+      board: boardConn.board,
       start_at: s.sess.start.toISOString(),
       end_at: s.sess.end.toISOString(),
       climb_count: s.sess.climbs.length,
@@ -106,12 +152,11 @@ export async function syncOneUser(
     });
   }
 
-  if (stravaConn === null || stravaConn.status !== "active" || stravaConn.posting_enabled !== 1) {
-    await repo.recordSyncResult(env.DB, userId, null);
+  if (stravaConn === null || stravaConn.status !== "active" || boardConn.posting_enabled !== 1) {
     return { status: "no_strava", posted: 0 };
   }
 
-  const postCutoff = stravaConn.post_since === null ? null : parseAuroraTime(stravaConn.post_since);
+  const postCutoff = boardConn.post_since === null ? null : parseAuroraTime(boardConn.post_since);
   const posted = await repo.postedSessionFingerprints(env.DB, userId);
   const toPost = scored.filter(
     (s) =>
@@ -154,14 +199,12 @@ export async function syncOneUser(
     }
     if (err instanceof StravaUnauthorizedError) {
       await repo.markStravaConnectionDeadByAthlete(env.DB, stravaConn.athlete_id);
-      await repo.recordSyncResult(env.DB, userId, "strava token rejected");
       return { status: "strava_dead", posted: postedCount };
     }
     throw err;
   }
 
   await persistRefreshedTokens(env, userId, strava);
-  await repo.recordSyncResult(env.DB, userId, null);
   return { status: "synced", posted: postedCount };
 }
 

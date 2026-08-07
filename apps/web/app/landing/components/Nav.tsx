@@ -1,7 +1,7 @@
 import React from "react";
 import { Button, Logo } from "@sendtally/design";
 
-export function Nav(): React.ReactElement {
+export function Nav({ signedIn }: { signedIn: boolean }): React.ReactElement {
   return (
     <div
       style={{
@@ -41,7 +41,7 @@ export function Nav(): React.ReactElement {
           </a>
         ))}
         <Button variant="gold" size="sm" href="/app">
-          Create account
+          {signedIn ? "Open app →" : "Create account"}
         </Button>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTrends, type TrendMetric } from "@sendtally/features/trends";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 import { TrendBars } from "../../features/trends/TrendBars";
+import { TrendFilters } from "../../features/trends/TrendFilters";
 import { useApi } from "../../lib/api";
 
 const METRICS: TrendMetric[] = ["volume", "pyramid", "hardest", "flash", "avggrade"];
@@ -12,7 +13,8 @@ const METRICS: TrendMetric[] = ["volume", "pyramid", "hardest", "flash", "avggra
 export default function TrendDetailScreen(): React.ReactElement {
   const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
   const api = useApi();
-  const { state } = useTrends(api);
+  const feature = useTrends(api);
+  const { state } = feature;
   const metric = METRICS.includes(metricParam as TrendMetric)
     ? (metricParam as TrendMetric)
     : "volume";
@@ -37,6 +39,7 @@ export default function TrendDetailScreen(): React.ReactElement {
             ← TRENDS
           </Text>
         </Pressable>
+        <TrendFilters feature={feature} />
         {state.status === "loading" && <ActivityIndicator color={colors.gunmetal} />}
         {state.status === "error" && (
           <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.watermelonInk }}>

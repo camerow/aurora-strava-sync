@@ -1,7 +1,7 @@
 import type { ClimbRow, ClimbStat } from "./aurora";
 import { vFromDisplay } from "@sendtally/core";
 
-export type UserRow = { id: string; timezone: string };
+export type UserRow = { id: string; timezone: string; auto_sync: number };
 
 export type BoardConnectionRow = {
   user_id: string;
@@ -10,6 +10,8 @@ export type BoardConnectionRow = {
   token_ciphertext: string;
   status: string;
   sync_since: string | null;
+  posting_enabled: number;
+  post_since: string | null;
 };
 
 export type StravaConnectionRow = {
@@ -19,12 +21,11 @@ export type StravaConnectionRow = {
   refresh_token_ciphertext: string;
   expires_at: number;
   status: string;
-  posting_enabled: number;
-  post_since: string | null;
 };
 
 export type SessionRow = {
   fingerprint: string;
+  board: string | null;
   start_at: string;
   end_at: string;
   climb_count: number;
@@ -55,19 +56,28 @@ export async function ensureUser(db: D1Database, id: string): Promise<void> {
 }
 
 export async function getUser(db: D1Database, id: string): Promise<UserRow | null> {
-  return db.prepare(`SELECT id, timezone FROM users WHERE id = ?`).bind(id).first<UserRow>();
+  return db
+    .prepare(`SELECT id, timezone, auto_sync FROM users WHERE id = ?`)
+    .bind(id)
+    .first<UserRow>();
+}
+
+export async function setAutoSync(db: D1Database, id: string, enabled: boolean): Promise<void> {
+  await db
+    .prepare(`UPDATE users SET auto_sync = ? WHERE id = ?`)
+    .bind(enabled ? 1 : 0, id)
+    .run();
 }
 
 export async function upsertBoardConnection(
   db: D1Database,
-  row: Omit<BoardConnectionRow, "status">
+  row: Omit<BoardConnectionRow, "status" | "posting_enabled" | "post_since">
 ): Promise<void> {
   await db
     .prepare(
       `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
        VALUES (?, ?, ?, ?, 'active', ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET
-         board = excluded.board,
+       ON CONFLICT(user_id, board) DO UPDATE SET
          board_user_id = excluded.board_user_id,
          token_ciphertext = excluded.token_ciphertext,
          status = 'active',
@@ -85,29 +95,63 @@ export async function upsertBoardConnection(
     .run();
 }
 
-export async function getBoardConnection(
+const BOARD_CONNECTION_COLS = `user_id, board, board_user_id, token_ciphertext, status, sync_since, posting_enabled, post_since`;
+
+export async function listBoardConnections(
   db: D1Database,
   userId: string
+): Promise<BoardConnectionRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT ${BOARD_CONNECTION_COLS} FROM board_connections WHERE user_id = ? ORDER BY connected_at`
+    )
+    .bind(userId)
+    .all<BoardConnectionRow>();
+  return rows.results;
+}
+
+export async function getBoardConnection(
+  db: D1Database,
+  userId: string,
+  board: string
 ): Promise<BoardConnectionRow | null> {
   return db
     .prepare(
-      `SELECT user_id, board, board_user_id, token_ciphertext, status, sync_since
-       FROM board_connections WHERE user_id = ?`
+      `SELECT ${BOARD_CONNECTION_COLS} FROM board_connections WHERE user_id = ? AND board = ?`
     )
-    .bind(userId)
+    .bind(userId, board)
     .first<BoardConnectionRow>();
 }
 
-export async function markBoardConnectionDead(db: D1Database, userId: string): Promise<void> {
+export async function markBoardConnectionDead(
+  db: D1Database,
+  userId: string,
+  board: string
+): Promise<void> {
   await db
-    .prepare(`UPDATE board_connections SET status = 'dead' WHERE user_id = ?`)
-    .bind(userId)
+    .prepare(`UPDATE board_connections SET status = 'dead' WHERE user_id = ? AND board = ?`)
+    .bind(userId, board)
+    .run();
+}
+
+export async function setBoardPosting(
+  db: D1Database,
+  userId: string,
+  board: string,
+  enabled: boolean,
+  postSince: string | null
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE board_connections SET posting_enabled = ?, post_since = ? WHERE user_id = ? AND board = ?`
+    )
+    .bind(enabled ? 1 : 0, postSince, userId, board)
     .run();
 }
 
 export async function upsertStravaConnection(
   db: D1Database,
-  row: Omit<StravaConnectionRow, "status" | "posting_enabled" | "post_since">
+  row: Omit<StravaConnectionRow, "status">
 ): Promise<void> {
   await db
     .prepare(
@@ -138,23 +182,11 @@ export async function getStravaConnection(
 ): Promise<StravaConnectionRow | null> {
   return db
     .prepare(
-      `SELECT user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, posting_enabled, post_since
+      `SELECT user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status
        FROM strava_connections WHERE user_id = ?`
     )
     .bind(userId)
     .first<StravaConnectionRow>();
-}
-
-export async function setStravaPosting(
-  db: D1Database,
-  userId: string,
-  enabled: boolean,
-  postSince: string | null
-): Promise<void> {
-  await db
-    .prepare(`UPDATE strava_connections SET posting_enabled = ?, post_since = ? WHERE user_id = ?`)
-    .bind(enabled ? 1 : 0, postSince, userId)
-    .run();
 }
 
 export async function updateStravaTokens(
@@ -186,6 +218,7 @@ export async function markStravaConnectionDeadByAthlete(
 
 export type ScoredSessionInput = {
   fingerprint: string;
+  board: string;
   start_at: string;
   end_at: string;
   climb_count: number;
@@ -203,9 +236,10 @@ export async function upsertScoredSession(
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO sessions (user_id, fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json, strava_activity_id, posted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+      `INSERT INTO sessions (user_id, fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json, strava_activity_id, posted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
        ON CONFLICT(user_id, fingerprint) DO UPDATE SET
+         board = excluded.board,
          start_at = excluded.start_at,
          end_at = excluded.end_at,
          climb_count = excluded.climb_count,
@@ -218,6 +252,7 @@ export async function upsertScoredSession(
     .bind(
       userId,
       s.fingerprint,
+      s.board,
       s.start_at,
       s.end_at,
       s.climb_count,
@@ -264,8 +299,8 @@ export async function listSessions(
   includeClimbs = false
 ): Promise<Array<SessionRow & { climbs_json?: string | null }>> {
   const cols = includeClimbs
-    ? "fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json"
-    : "fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at";
+    ? "fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json"
+    : "fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at";
   const rows = await db
     .prepare(`SELECT ${cols} FROM sessions WHERE user_id = ? ORDER BY start_at DESC LIMIT ?`)
     .bind(userId, limit)
@@ -280,7 +315,7 @@ export async function getSession(
 ): Promise<(SessionRow & { climbs_json: string | null }) | null> {
   return db
     .prepare(
-      `SELECT fingerprint, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json
+      `SELECT fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, strava_activity_id, posted_at, climbs_json
        FROM sessions WHERE user_id = ? AND fingerprint = ?`
     )
     .bind(userId, fingerprint)
@@ -411,10 +446,12 @@ export async function usersDueForSync(db: D1Database, olderThanMs: number): Prom
   const cutoff = new Date(Date.now() - olderThanMs).toISOString();
   const rows = await db
     .prepare(
-      `SELECT bc.user_id AS user_id
+      `SELECT DISTINCT bc.user_id AS user_id
        FROM board_connections bc
+       JOIN users u ON u.id = bc.user_id
        LEFT JOIN sync_state ss ON ss.user_id = bc.user_id
        WHERE bc.status = 'active'
+         AND u.auto_sync = 1
          AND (ss.last_synced_at IS NULL OR ss.last_synced_at < ?)`
     )
     .bind(cutoff)

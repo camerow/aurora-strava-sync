@@ -6,11 +6,13 @@ import { useTrends } from "@sendtally/features/trends";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 import { Logo } from "../../components/Logo";
 import { TrendBars } from "../../features/trends/TrendBars";
+import { TrendFilters } from "../../features/trends/TrendFilters";
 import { useApi } from "../../lib/api";
 
 export default function Trends(): React.ReactElement {
   const api = useApi();
-  const { state } = useTrends(api);
+  const feature = useTrends(api);
+  const { state } = feature;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>
@@ -47,6 +49,7 @@ export default function Trends(): React.ReactElement {
             </Text>
           )}
         </View>
+        <TrendFilters feature={feature} />
         {state.status === "loading" && <ActivityIndicator color={colors.gunmetal} />}
         {state.status === "error" && (
           <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.watermelonInk }}>
