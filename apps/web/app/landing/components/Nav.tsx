@@ -13,7 +13,15 @@ export function Nav(): React.ReactElement {
       }}
     >
       <Logo tone="on-light" size={24} />
-      <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 28,
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+        }}
+      >
         {[
           ["How it works", "#how"],
           ["Boards", "#boards"],

@@ -4,6 +4,8 @@ import {
   type ConnectBoardResult,
   type ConnectionStatus,
   type SessionRow,
+  type SessionDetail,
+  type SessionWithClimbs,
   type StravaPostingMode,
 } from "./types";
 
@@ -41,6 +43,16 @@ export class SendtallyApi {
 
   sessions(): Promise<{ sessions: SessionRow[] }> {
     return this.request<{ sessions: SessionRow[] }>("/v1/sessions");
+  }
+
+  sessionsWithClimbs(): Promise<{ sessions: SessionWithClimbs[] }> {
+    return this.request<{ sessions: SessionWithClimbs[] }>("/v1/sessions?include=climbs");
+  }
+
+  session(fingerprint: string): Promise<{ session: SessionDetail }> {
+    return this.request<{ session: SessionDetail }>(
+      `/v1/sessions/${encodeURIComponent(fingerprint)}`
+    );
   }
 
   connectBoard(input: ConnectBoardInput): Promise<ConnectBoardResult> {

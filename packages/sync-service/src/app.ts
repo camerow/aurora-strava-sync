@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { cors } from "hono/cors";
 import { z } from "zod";
 import type { Env } from "./bindings";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
@@ -105,6 +106,13 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     return c.redirect(`${c.env.WEB_APP_URL}/connected/strava`);
   });
 
+  app.use("/v1/*", (c, next) =>
+    cors({
+      origin: c.env.WEB_APP_URL,
+      allowHeaders: ["Authorization", "Content-Type"],
+      allowMethods: ["GET", "POST", "OPTIONS"],
+    })(c, next)
+  );
   app.use("/v1/*", async (c, next) => {
     const userId = await deps.verifyUser(c.req.raw, c.env);
     if (userId === null) return c.json({ error: "unauthorized" }, 401);
@@ -165,8 +173,24 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
   });
 
   app.get("/v1/sessions", async (c) => {
-    const sessions = await repo.listSessions(c.env.DB, c.get("userId"), 100);
+    const includeClimbs = c.req.query("include") === "climbs";
+    const rows = await repo.listSessions(c.env.DB, c.get("userId"), 200, includeClimbs);
+    const sessions = includeClimbs
+      ? rows.map(({ climbs_json, ...rest }) => ({
+          ...rest,
+          climbs: climbs_json == null ? [] : JSON.parse(climbs_json),
+        }))
+      : rows;
     return c.json({ sessions });
+  });
+
+  app.get("/v1/sessions/:fingerprint", async (c) => {
+    const row = await repo.getSession(c.env.DB, c.get("userId"), c.req.param("fingerprint"));
+    if (row === null) return c.json({ error: "not found" }, 404);
+    const { climbs_json, ...rest } = row;
+    return c.json({
+      session: { ...rest, climbs: climbs_json == null ? [] : JSON.parse(climbs_json) },
+    });
   });
 
   app.get("/v1/status", async (c) => {

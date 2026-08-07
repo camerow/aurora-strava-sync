@@ -154,7 +154,7 @@ export default function Sessions(): React.ReactElement {
             opacity: syncRequested ? 0.45 : 1,
           }}
         >
-          {syncRequested ? "Sync queued…" : "Sync now"}
+          {syncRequested ? "Sync queued…" : "Sync sessions"}
         </button>
       </div>
       {importing && (
@@ -187,7 +187,7 @@ export default function Sessions(): React.ReactElement {
               fontWeight: 500,
               fontSize: 12,
               letterSpacing: "0.06em",
-              color: "rgba(239,188,213,0.88)",
+              color: "rgba(238,211,248,0.88)",
             }}
           >
             READING YOUR LOGBOOK - the first import can take a few minutes. This page refreshes
@@ -281,7 +281,7 @@ export default function Sessions(): React.ReactElement {
           }}
         >
           No sessions yet. Climb, log it in the board app, and it shows up here within a couple of
-          hours - or hit Sync now.
+          hours - or hit Sync sessions.
         </div>
       )}
     </div>

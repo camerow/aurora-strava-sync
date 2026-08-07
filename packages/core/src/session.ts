@@ -6,6 +6,7 @@ export type Climb = {
   name: string;
   kind: ClimbKind;
   tries: number;
+  angle?: number;
 };
 
 export type Session = {

@@ -10,3 +10,6 @@ dist/
 .wrangler/
 build/
 .react-router/
+apps/mobile/ios/
+apps/mobile/android/
+.expo/

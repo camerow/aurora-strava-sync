@@ -83,7 +83,7 @@ function auroraRoutes(): FakeRoute[] {
         }),
     },
     {
-      match: (url, _m, body) => url.endsWith("/sync") && body.includes("climb_stats="),
+      match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
       respond: () =>
         jsonResponse(200, {
           climbs: [
@@ -91,7 +91,7 @@ function auroraRoutes(): FakeRoute[] {
             { uuid: "c2", name: "Crimp Reaper" },
             { uuid: "c3", name: "Mind Meld" },
           ],
-          climb_stats: [{ climb_uuid: "c3", angle: 40, display_difficulty: 24.2 }],
+          climb_stats: [{ climb_uuid: "c3", angle: 40, difficulty_average: 24.2 }],
           shared_syncs: [
             { table_name: "climb_stats", last_synchronized_at: "2026-08-01 00:00:00.000000" },
             { table_name: "climbs", last_synchronized_at: "2026-08-01 00:00:00.000000" },
@@ -212,7 +212,7 @@ describe("syncOneUser", () => {
     const routes: FakeRoute[] = [
       auroraRoutes()[0]!,
       {
-        match: (url, _m, body) => url.endsWith("/sync") && body.includes("climb_stats="),
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
         respond: () => {
           sharedCalls++;
           return jsonResponse(200, {
@@ -221,7 +221,7 @@ describe("syncOneUser", () => {
               { uuid: "c2", name: "Crimp Reaper" },
               { uuid: "c3", name: "Mind Meld" },
             ],
-            climb_stats: [{ climb_uuid: "c3", angle: 40, display_difficulty: 24.2 }],
+            climb_stats: [{ climb_uuid: "c3", angle: 40, difficulty_average: 24.2 }],
             shared_syncs: [
               {
                 table_name: "climb_stats",

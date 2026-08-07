@@ -3,6 +3,7 @@ declare global {
     CLERK_PUBLISHABLE_KEY: string;
     CLERK_SECRET_KEY: string;
     API_URL: string;
+    GA_MEASUREMENT_ID?: string;
   };
 }
 

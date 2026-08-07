@@ -63,7 +63,13 @@ export function HowItWorks(): React.ReactElement {
             in the board app.
           </span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 20,
+          }}
+        >
           {STEPS.map(([n, title, body]) => (
             <Card key={n} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <span

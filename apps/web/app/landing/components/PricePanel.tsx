@@ -10,7 +10,7 @@ export function PricePanel(): React.ReactElement {
           borderRadius: "var(--radius-panel)",
           padding: 52,
           display: "grid",
-          gridTemplateColumns: "1.15fr .85fr",
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
           gap: 48,
           alignItems: "center",
         }}
@@ -102,7 +102,7 @@ export function PricePanel(): React.ReactElement {
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: "rgba(239,188,213,0.85)",
+              color: "rgba(238,211,248,0.85)",
             }}
           >
             No password. No card.

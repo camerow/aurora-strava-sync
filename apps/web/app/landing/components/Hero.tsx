@@ -7,7 +7,7 @@ export function Hero(): React.ReactElement {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1.05fr .95fr",
+        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
         gap: 64,
         alignItems: "center",
         padding: "78px 56px 84px",
@@ -60,7 +60,7 @@ export function Hero(): React.ReactElement {
               color: "rgba(64,63,76,0.58)",
             }}
           >
-            Free · magic-link sign in · connected in about five minutes
+            Free · one-time code sign-in · connected in about five minutes
           </span>
         </div>
       </div>

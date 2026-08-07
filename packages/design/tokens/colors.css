@@ -12,7 +12,9 @@
   --bs-azure-press: #1f6ad8;
   --bs-azure-ink: #1b62ce; /* AA-safe azure: text on white AND filled-button ground */
   --bs-azure-ink-press: #144ea6;
-  --bs-petal: #efbcd5;
+  --bs-petal: #cc79ea;
+  --bs-petal-tint: #eed3f8; /* light lavender - text/hairlines on gunmetal */
+  --bs-petal-ink: #8c1fb5; /* dark - fills that carry white text (avatar chip) */
   --bs-white: #ffffff;
 
   /* Surfaces */
@@ -24,19 +26,19 @@
 
   /* Text on dark (gunmetal) */
   --text-on-dark: var(--bs-white);
-  --text-on-dark-secondary: rgba(239, 188, 213, 0.88); /* 5.4:1 */
-  --text-on-dark-muted: rgba(239, 188, 213, 0.8); /* 4.6:1 - smallest allowed */
+  --text-on-dark-secondary: rgba(238, 211, 248, 0.88); /* 6.2:1 */
+  --text-on-dark-muted: rgba(238, 211, 248, 0.8); /* 5.5:1 - smallest allowed */
   --text-on-dark-label: var(--bs-gold); /* 7.5:1 */
 
   /* Text on light (white / petal / gold) */
-  --text-on-light: var(--bs-gunmetal); /* 6.2:1 on petal, 7.5:1 on gold */
-  --text-on-light-secondary: rgba(64, 63, 76, 0.88); /* 4.8:1 on petal */
+  --text-on-light: var(--bs-gunmetal); /* 3.7:1 on petal (large text only), 7.5:1 on gold */
+  --text-on-light-secondary: rgba(64, 63, 76, 0.88); /* 4.9:1 on petal */
   --text-on-white-secondary: rgba(64, 63, 76, 0.72); /* 5.5:1 on white */
   --text-label-accent: var(--bs-watermelon-ink);
   --text-link: var(--bs-azure-ink);
 
   /* Lines */
-  --line-on-dark: rgba(239, 188, 213, 0.18);
+  --line-on-dark: rgba(238, 211, 248, 0.18);
   --line-on-light: rgba(64, 63, 76, 0.1);
   --line-on-light-soft: rgba(64, 63, 76, 0.08);
 
