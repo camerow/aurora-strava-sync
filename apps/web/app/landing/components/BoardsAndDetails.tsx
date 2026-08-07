@@ -23,16 +23,7 @@ const DETAILS: Array<[string, string]> = [
 
 function SectionTitle({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
-    <h2
-      style={{
-        margin: 0,
-        fontFamily: "var(--font-display)",
-        fontWeight: 700,
-        fontSize: 36,
-        letterSpacing: "-0.03em",
-        color: "var(--bs-gunmetal)",
-      }}
-    >
+    <h2 className="l-section-title" style={{ color: "var(--bs-gunmetal)" }}>
       {children}
     </h2>
   );
@@ -49,13 +40,8 @@ function DetailRow({
 }): React.ReactElement {
   return (
     <div
-      style={{
-        display: "flex",
-        gap: 20,
-        padding: "14px 0",
-        borderTop: "1px solid var(--line-on-light)",
-        borderBottom: last ? "1px solid var(--line-on-light)" : "none",
-      }}
+      className="l-detail-row"
+      style={{ borderBottom: last ? "1px solid var(--line-on-light)" : "none" }}
     >
       <span
         style={{
@@ -71,27 +57,14 @@ function DetailRow({
       >
         {label}
       </span>
-      <span style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text-on-white-secondary)" }}>
-        {body}
-      </span>
+      <span className="l-detail-body">{body}</span>
     </div>
   );
 }
 
 export function BoardsAndDetails(): React.ReactElement {
   return (
-    <div
-      id="boards"
-      style={{
-        padding: "64px 56px",
-        maxWidth: 1440,
-        margin: "0 auto",
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-        gap: 56,
-        alignItems: "start",
-      }}
-    >
+    <div id="boards" className="l-boards">
       <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
         <SectionTitle>Boards</SectionTitle>
         <div
