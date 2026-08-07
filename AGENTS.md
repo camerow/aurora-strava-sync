@@ -76,6 +76,11 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 - Wrangler environments `staging` and `production` for `sync-service` and `web`: separate D1 databases, separate Clerk instances, secrets via `wrangler secret`.
 - `staging` is the integration branch, `main` is production. All work branches off `staging` and PRs target `staging`. `main` is updated only via the `staging -> main` promotion PR, which triggers the production deploy and D1 migrations.
 - D1 migrations: `wrangler d1 migrations apply`, additive and forward-only. Never delete or rewrite prior migrations.
+- Schema source of truth is Drizzle (`packages/sync-service/src/db/schema.ts`).
+  Change the schema there, then run `pnpm --filter @sendtally/sync-service db:generate` to emit the next migration into `migrations/` (drizzle-kit diffs against `migrations/meta/`; `0005_drizzle_baseline.sql` anchors the pre-Drizzle history).
+  Wrangler remains the applier - CI applies migrations on every deploy, and PR CI validates them against a fresh local D1.
+  Never hand-write migration SQL for schema changes; never edit `migrations/meta/` by hand.
+- Database access goes through the typed Drizzle queries in `packages/sync-service/src/lib/repo.ts` - no raw SQL strings in Worker code.
 - CI: `.github/workflows/deploy.yml` runs checks (types, tests, format, Go) then deploys both Workers - push to `staging` deploys the staging env, push to `main` deploys production. Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets.
 
 ### Secrets
