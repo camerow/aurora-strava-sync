@@ -48,6 +48,12 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: packages/sync-service
+          command: d1 migrations apply DB --env ${{ env.DEPLOY_ENV }} --remote
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: packages/sync-service
           command: deploy --env ${{ env.DEPLOY_ENV }}
 
   deploy-web:
