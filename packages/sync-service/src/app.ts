@@ -24,7 +24,16 @@ const connectBoardBody = z.object({
 });
 
 const stravaPostingBody = z.object({
+  board: z.enum(BOARDS as [string, ...string[]]),
   mode: z.enum(["off", "new", "all"]),
+});
+
+const syncNowBody = z.object({
+  board: z.enum(BOARDS as [string, ...string[]]).optional(),
+});
+
+const syncScheduleBody = z.object({
+  mode: z.enum(["off", "daily"]),
 });
 
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
@@ -145,7 +154,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       token_ciphertext: await encryptSecret(session.token, c.env.TOKEN_KEY),
       sync_since: null,
     });
-    await c.env.SYNC_QUEUE.send({ userId });
+    await c.env.SYNC_QUEUE.send({ userId, board });
     return c.json({ board, boardUserId: session.userId });
   });
 
@@ -195,22 +204,27 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
 
   app.get("/v1/status", async (c) => {
     const userId = c.get("userId");
-    const board = await repo.getBoardConnection(c.env.DB, userId);
+    const user = await repo.getUser(c.env.DB, userId);
+    const boards = await repo.listBoardConnections(c.env.DB, userId);
     const strava = await repo.getStravaConnection(c.env.DB, userId);
     const sync = await repo.getSyncState(c.env.DB, userId);
     return c.json({
-      board: board === null ? null : { board: board.board, status: board.status },
+      boards: boards.map((b) => ({
+        board: b.board,
+        status: b.status,
+        postingEnabled: b.posting_enabled === 1,
+        postSince: b.post_since,
+      })),
       strava:
         strava === null
           ? null
           : {
               athleteId: strava.athlete_id,
               status: strava.status,
-              postingEnabled: strava.posting_enabled === 1,
-              postSince: strava.post_since,
             },
       sync:
         sync === null ? null : { lastSyncedAt: sync.last_synced_at, lastError: sync.last_error },
+      autoSync: user?.auto_sync === 1,
     });
   });
 
@@ -218,12 +232,14 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const parsed = stravaPostingBody.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
     const userId = c.get("userId");
+    const { board, mode } = parsed.data;
+    const conn = await repo.getBoardConnection(c.env.DB, userId, board);
+    if (conn === null) return c.json({ error: "board is not connected" }, 409);
     const strava = await repo.getStravaConnection(c.env.DB, userId);
     if (strava === null) return c.json({ error: "strava is not connected" }, 409);
-    const { mode } = parsed.data;
     if (mode === "off") {
-      await repo.setStravaPosting(c.env.DB, userId, false, null);
-      return c.json({ mode });
+      await repo.setBoardPosting(c.env.DB, userId, board, false, null);
+      return c.json({ board, mode });
     }
     const user = await repo.getUser(c.env.DB, userId);
     const postSince =
@@ -232,14 +248,28 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
             .toISOString()
             .slice(0, 10)} 00:00:00.000000`
         : null;
-    await repo.setStravaPosting(c.env.DB, userId, true, postSince);
-    await c.env.SYNC_QUEUE.send({ userId });
-    return c.json({ mode });
+    await repo.setBoardPosting(c.env.DB, userId, board, true, postSince);
+    await c.env.SYNC_QUEUE.send({ userId, board });
+    return c.json({ board, mode });
   });
 
   app.post("/v1/sync-now", async (c) => {
-    await c.env.SYNC_QUEUE.send({ userId: c.get("userId") });
+    const raw = await c.req.json().catch(() => ({}));
+    const parsed = syncNowBody.safeParse(raw ?? {});
+    if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
+    const userId = c.get("userId");
+    const { board } = parsed.data;
+    await c.env.SYNC_QUEUE.send(board === undefined ? { userId } : { userId, board });
     return c.json({ queued: true });
+  });
+
+  app.post("/v1/sync-schedule", async (c) => {
+    const parsed = syncScheduleBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
+    const userId = c.get("userId");
+    await repo.ensureUser(c.env.DB, userId);
+    await repo.setAutoSync(c.env.DB, userId, parsed.data.mode === "daily");
+    return c.json({ mode: parsed.data.mode });
   });
 
   return app;

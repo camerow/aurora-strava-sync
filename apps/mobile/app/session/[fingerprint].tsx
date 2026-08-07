@@ -68,13 +68,9 @@ function Chip({
 }
 
 export default function SessionDetailScreen(): React.ReactElement {
-  const { fingerprint, board } = useLocalSearchParams<{ fingerprint: string; board?: string }>();
+  const { fingerprint } = useLocalSearchParams<{ fingerprint: string }>();
   const api = useApi();
-  const { state, filter, setFilter, sort, setSort } = useSessionDetail(
-    api,
-    fingerprint ?? "",
-    board ?? null
-  );
+  const { state, filter, setFilter, sort, setSort } = useSessionDetail(api, fingerprint ?? "");
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>

@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import type { SessionRow } from "@sendtally/api-client";
+import { SESSION_BADGE_LABELS, type SessionBadge } from "@sendtally/features/sessions";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 
 function durationLabel(startAt: string, endAt: string): string {
@@ -10,12 +11,10 @@ function durationLabel(startAt: string, endAt: string): string {
   return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
 }
 
-export type SessionBadge = "synced" | "pending" | "logged";
-
-const BADGES: Record<SessionBadge, { label: string; color: string; border: string }> = {
-  synced: { label: "SYNCED", color: colors.azureInk, border: "rgba(27,98,206,0.4)" },
-  pending: { label: "PENDING", color: "rgba(64,63,76,0.6)", border: "rgba(64,63,76,0.25)" },
-  logged: { label: "LOGGED", color: colors.textFaint, border: "rgba(64,63,76,0.18)" },
+const BADGES: Record<SessionBadge, { color: string; border: string }> = {
+  on_strava: { color: colors.azureInk, border: "rgba(27,98,206,0.4)" },
+  will_post: { color: "rgba(64,63,76,0.6)", border: "rgba(64,63,76,0.25)" },
+  not_posted: { color: colors.textFaint, border: "rgba(64,63,76,0.18)" },
 };
 
 export function SessionCard({
@@ -77,7 +76,7 @@ export function SessionCard({
             overflow: "hidden",
           }}
         >
-          {b.label}
+          {SESSION_BADGE_LABELS[badge]}
         </Text>
       </View>
       <View

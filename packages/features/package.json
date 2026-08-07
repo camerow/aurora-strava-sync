@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./session-detail": "./src/session-detail/index.ts",
+    "./sessions": "./src/sessions/index.ts",
     "./trends": "./src/trends/index.ts",
     "./sync-settings": "./src/sync-settings/index.ts"
   },

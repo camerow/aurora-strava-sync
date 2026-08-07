@@ -6,6 +6,7 @@ import { cloudflareContext } from "../lib/cloudflare-context";
 import { requireApi } from "../lib/api.server";
 import { useClientApi } from "../lib/useClientApi";
 import { TrendBars } from "../trends/components/TrendBars";
+import { TrendFilters } from "../trends/components/TrendFilters";
 
 export async function loader(args: LoaderFunctionArgs): Promise<{ apiUrl: string }> {
   await requireApi(args);
@@ -26,7 +27,8 @@ export default function TrendDetailRoute(): React.ReactElement {
   const { apiUrl } = useLoaderData<typeof loader>();
   const params = useParams();
   const api = useClientApi(apiUrl);
-  const { state } = useTrends(api);
+  const feature = useTrends(api);
+  const { state } = feature;
   const metric = METRICS.includes(params.metric as TrendMetric)
     ? (params.metric as TrendMetric)
     : "volume";
@@ -46,6 +48,7 @@ export default function TrendDetailRoute(): React.ReactElement {
       >
         ← TRENDS
       </Link>
+      <TrendFilters feature={feature} />
       {state.status === "loading" && (
         <span style={{ ...monoMuted, display: "block", marginTop: 22 }}>LOADING…</span>
       )}

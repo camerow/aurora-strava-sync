@@ -6,6 +6,7 @@ import { cloudflareContext } from "../lib/cloudflare-context";
 import { requireApi } from "../lib/api.server";
 import { useClientApi } from "../lib/useClientApi";
 import { TrendBars } from "../trends/components/TrendBars";
+import { TrendFilters } from "../trends/components/TrendFilters";
 
 export async function loader(args: LoaderFunctionArgs): Promise<{ apiUrl: string }> {
   await requireApi(args);
@@ -23,7 +24,8 @@ const monoMuted: React.CSSProperties = {
 export default function TrendsRoute(): React.ReactElement {
   const { apiUrl } = useLoaderData<typeof loader>();
   const api = useClientApi(apiUrl);
-  const { state } = useTrends(api);
+  const feature = useTrends(api);
+  const { state } = feature;
 
   return (
     <div>
@@ -41,6 +43,7 @@ export default function TrendsRoute(): React.ReactElement {
         </h1>
         {state.status === "ready" && <span style={monoMuted}>{state.data.caption}</span>}
       </div>
+      <TrendFilters feature={feature} />
       {state.status === "loading" && (
         <span style={{ ...monoMuted, display: "block", marginTop: 22 }}>LOADING…</span>
       )}

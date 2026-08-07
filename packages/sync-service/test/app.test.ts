@@ -50,7 +50,7 @@ describe("app", () => {
       fakeEnv
     );
     expect(res.status).toBe(200);
-    expect(queued).toEqual([{ userId: "user_connect" }]);
+    expect(queued).toEqual([{ userId: "user_connect", board: "tension" }]);
     expect(await res.json()).toEqual({ board: "tension", boardUserId: 42 });
 
     const loginCall = calls.find((c) => c.url.endsWith("/sessions"));
@@ -249,5 +249,123 @@ describe("app", () => {
     );
     expect(res.status).toBe(200);
     expect(sent).toEqual([{ userId: "user_q" }]);
+  });
+
+  it("enqueues a board-scoped sync job when a board is given", async () => {
+    const sent: unknown[] = [];
+    const fakeEnv = {
+      ...env,
+      SYNC_QUEUE: { send: async (msg: unknown) => void sent.push(msg) },
+    } as unknown as Env;
+    const res = await testApp().request(
+      "/v1/sync-now",
+      {
+        method: "POST",
+        headers: { "x-test-user": "user_qb", "Content-Type": "application/json" },
+        body: JSON.stringify({ board: "kilter" }),
+      },
+      fakeEnv
+    );
+    expect(res.status).toBe(200);
+    expect(sent).toEqual([{ userId: "user_qb", board: "kilter" }]);
+  });
+
+  it("keeps existing connections when a second board is connected", async () => {
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url, method) => url.endsWith("/sessions") && method === "POST",
+        respond: () => jsonResponse(201, { session: { token: "tok-2", user_id: 77 } }),
+      },
+    ]);
+    const fakeEnv = {
+      ...env,
+      SYNC_QUEUE: { send: async () => undefined },
+    } as unknown as Env;
+    for (const board of ["tension", "kilter"]) {
+      const res = await testApp(fetchImpl).request(
+        "/v1/connect/board",
+        {
+          method: "POST",
+          headers: { "x-test-user": "user_two_boards", "Content-Type": "application/json" },
+          body: JSON.stringify({ board, username: "will", password: "hunter2" }),
+        },
+        fakeEnv
+      );
+      expect(res.status).toBe(200);
+    }
+    const rows = await env.DB.prepare(
+      `SELECT board FROM board_connections WHERE user_id = 'user_two_boards' ORDER BY board`
+    ).all<{ board: string }>();
+    expect(rows.results).toEqual([{ board: "kilter" }, { board: "tension" }]);
+  });
+
+  it("sets Strava posting per board", async () => {
+    await env.DB.prepare(
+      `INSERT INTO users (id, timezone, created_at) VALUES ('user_posting', 'UTC', '')`
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
+       VALUES ('user_posting', 'tension', 1, 'x', 'active', NULL, ''),
+              ('user_posting', 'kilter', 2, 'x', 'active', NULL, '')`
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
+       VALUES ('user_posting', 321, 'x', 'y', 0, 'active', '')`
+    ).run();
+    const fakeEnv = {
+      ...env,
+      SYNC_QUEUE: { send: async () => undefined },
+    } as unknown as Env;
+
+    const res = await testApp().request(
+      "/v1/strava/posting",
+      {
+        method: "POST",
+        headers: { "x-test-user": "user_posting", "Content-Type": "application/json" },
+        body: JSON.stringify({ board: "kilter", mode: "all" }),
+      },
+      fakeEnv
+    );
+    expect(res.status).toBe(200);
+
+    const rows = await env.DB.prepare(
+      `SELECT board, posting_enabled FROM board_connections WHERE user_id = 'user_posting' ORDER BY board`
+    ).all<{ board: string; posting_enabled: number }>();
+    expect(rows.results).toEqual([
+      { board: "kilter", posting_enabled: 1 },
+      { board: "tension", posting_enabled: 0 },
+    ]);
+  });
+
+  it("stores the daily sync schedule choice", async () => {
+    const daily = await testApp().request(
+      "/v1/sync-schedule",
+      {
+        method: "POST",
+        headers: { "x-test-user": "user_sched", "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "daily" }),
+      },
+      env
+    );
+    expect(daily.status).toBe(200);
+    let user = await env.DB.prepare(`SELECT auto_sync FROM users WHERE id = 'user_sched'`).first<{
+      auto_sync: number;
+    }>();
+    expect(user?.auto_sync).toBe(1);
+
+    const off = await testApp().request(
+      "/v1/sync-schedule",
+      {
+        method: "POST",
+        headers: { "x-test-user": "user_sched", "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "off" }),
+      },
+      env
+    );
+    expect(off.status).toBe(200);
+    user = await env.DB.prepare(`SELECT auto_sync FROM users WHERE id = 'user_sched'`).first<{
+      auto_sync: number;
+    }>();
+    expect(user?.auto_sync).toBe(0);
   });
 });

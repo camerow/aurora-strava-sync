@@ -4,7 +4,7 @@ import type { Env, SyncJob } from "./bindings";
 import { usersDueForSync } from "./lib/repo";
 import { syncOneUser } from "./pipeline";
 
-const SYNC_INTERVAL_MS = 55 * 60 * 1000;
+const SYNC_INTERVAL_MS = 23 * 60 * 60 * 1000;
 const RATE_LIMIT_RETRY_SECONDS = 15 * 60;
 
 const app = createApp({ verifyUser: verifyClerkUser });
@@ -27,7 +27,7 @@ export default {
     for (const msg of batch.messages) {
       let outcome;
       try {
-        outcome = await syncOneUser(env, msg.body.userId);
+        outcome = await syncOneUser(env, msg.body.userId, undefined, msg.body.board);
       } catch (err) {
         await env.DB.prepare(
           `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES ('_meta', 'last_consumer_error', ?)`
@@ -51,7 +51,7 @@ export default {
       } else if (outcome.status === "cache_filling") {
         // Continue the fill in a fresh invocation with a fresh subrequest
         // budget; a new message avoids the max_retries cap.
-        await env.SYNC_QUEUE.send({ userId: msg.body.userId });
+        await env.SYNC_QUEUE.send(msg.body);
         msg.ack();
       } else {
         msg.ack();

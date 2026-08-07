@@ -1,15 +1,23 @@
+export type BoardStatus = {
+  board: string;
+  status: string;
+  postingEnabled: boolean;
+  postSince: string | null;
+};
+
 export type ConnectionStatus = {
-  board: { board: string; status: string } | null;
+  boards: BoardStatus[];
   strava: {
     athleteId: number;
     status: string;
-    postingEnabled: boolean;
-    postSince: string | null;
   } | null;
   sync: { lastSyncedAt: string | null; lastError: string | null } | null;
+  autoSync: boolean;
 };
 
 export type StravaPostingMode = "off" | "new" | "all";
+
+export type SyncScheduleMode = "off" | "daily";
 
 export type SessionClimb = {
   time: string;
@@ -22,6 +30,7 @@ export type SessionClimb = {
 
 export type SessionRow = {
   fingerprint: string;
+  board: string | null;
   start_at: string;
   end_at: string;
   climb_count: number;

@@ -16,8 +16,8 @@ async function seedUser(
     .bind(userId, new Date().toISOString())
     .run();
   await env.DB.prepare(
-    `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
-     VALUES (?, ?, ?, ?, 'active', NULL, ?)`
+    `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at, posting_enabled, post_since)
+     VALUES (?, ?, ?, ?, 'active', NULL, ?, 1, NULL)`
   )
     .bind(
       userId,
@@ -28,8 +28,8 @@ async function seedUser(
     )
     .run();
   await env.DB.prepare(
-    `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at, posting_enabled, post_since)
-     VALUES (?, ?, ?, ?, ?, 'active', ?, 1, NULL)`
+    `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
+     VALUES (?, ?, ?, ?, ?, 'active', ?)`
   )
     .bind(
       userId,
@@ -276,7 +276,7 @@ describe("syncOneUser", () => {
 
   it("does not post when posting is not enabled", async () => {
     await seedUser(userId, 45, 10);
-    await env.DB.prepare(`UPDATE strava_connections SET posting_enabled = 0 WHERE user_id = ?`)
+    await env.DB.prepare(`UPDATE board_connections SET posting_enabled = 0 WHERE user_id = ?`)
       .bind(userId)
       .run();
     const { fetchImpl, calls } = makeFakeFetch([
@@ -294,9 +294,59 @@ describe("syncOneUser", () => {
     expect(rows?.n).toBe(1);
   });
 
+  it("syncs every connected board and stamps sessions with their board", async () => {
+    await seedUser(userId, 42, 7);
+    await env.DB.prepare(
+      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at, posting_enabled, post_since)
+       VALUES (?, 'kilter', 52, ?, 'active', NULL, ?, 1, NULL)`
+    )
+      .bind(userId, await encryptSecret("board-token-2", env.TOKEN_KEY), new Date().toISOString())
+      .run();
+    const { fetchImpl, calls } = makeFakeFetch([
+      ...auroraRoutes(),
+      stravaCreateRoute(201, 5005),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome).toEqual({ status: "synced", posted: 2 });
+    expect(stravaCreateCalls(calls)).toHaveLength(2);
+
+    const rows = await env.DB.prepare(
+      `SELECT board, fingerprint FROM sessions WHERE user_id = ? ORDER BY board`
+    )
+      .bind(userId)
+      .all<{ board: string; fingerprint: string }>();
+    expect(rows.results.map((r) => r.board)).toEqual(["kilter", "tension"]);
+    expect(rows.results[0]!.fingerprint).not.toBe(rows.results[1]!.fingerprint);
+  });
+
+  it("syncs only the requested board when one is specified", async () => {
+    await seedUser(userId, 42, 7);
+    await env.DB.prepare(
+      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at, posting_enabled, post_since)
+       VALUES (?, 'kilter', 52, ?, 'active', NULL, ?, 1, NULL)`
+    )
+      .bind(userId, await encryptSecret("board-token-2", env.TOKEN_KEY), new Date().toISOString())
+      .run();
+    const { fetchImpl } = makeFakeFetch([
+      ...auroraRoutes(),
+      stravaCreateRoute(201, 6006),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl, "kilter");
+    expect(outcome).toEqual({ status: "synced", posted: 1 });
+
+    const rows = await env.DB.prepare(`SELECT board FROM sessions WHERE user_id = ?`)
+      .bind(userId)
+      .all<{ board: string }>();
+    expect(rows.results).toEqual([{ board: "kilter" }]);
+  });
+
   it("respects post_since as the posting cutoff", async () => {
     await seedUser(userId, 48, 12);
-    await env.DB.prepare(`UPDATE strava_connections SET post_since = ? WHERE user_id = ?`)
+    await env.DB.prepare(`UPDATE board_connections SET post_since = ? WHERE user_id = ?`)
       .bind("2026-07-15 00:00:00.000000", userId)
       .run();
     const { fetchImpl, calls } = makeFakeFetch([
