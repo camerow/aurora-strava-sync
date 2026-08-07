@@ -1,7 +1,7 @@
 import { createApp } from "./app";
 import { verifyClerkUser } from "./auth";
 import type { Env, SyncJob } from "./bindings";
-import { usersDueForSync } from "./lib/repo";
+import { setBoardCursor, usersDueForSync } from "./lib/repo";
 import { syncOneUser } from "./pipeline";
 
 const SYNC_INTERVAL_MS = 23 * 60 * 60 * 1000;
@@ -13,11 +13,7 @@ export default {
   fetch: app.fetch,
 
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-    await env.DB.prepare(
-      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES ('_meta', 'cron_heartbeat', ?)`
-    )
-      .bind(new Date().toISOString())
-      .run();
+    await setBoardCursor(env.DB, "_meta", "cron_heartbeat", new Date().toISOString());
     const due = await usersDueForSync(env.DB, SYNC_INTERVAL_MS);
     if (due.length === 0) return;
     await env.SYNC_QUEUE.sendBatch(due.map((userId) => ({ body: { userId } })));
@@ -29,23 +25,23 @@ export default {
       try {
         outcome = await syncOneUser(env, msg.body.userId, undefined, msg.body.board);
       } catch (err) {
-        await env.DB.prepare(
-          `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES ('_meta', 'last_consumer_error', ?)`
-        )
-          .bind(
-            `${new Date().toISOString()} ${err instanceof Error ? err.message : String(err)}`.slice(
-              0,
-              500
-            )
+        await setBoardCursor(
+          env.DB,
+          "_meta",
+          "last_consumer_error",
+          `${new Date().toISOString()} ${err instanceof Error ? err.message : String(err)}`.slice(
+            0,
+            500
           )
-          .run();
+        );
         throw err;
       }
-      await env.DB.prepare(
-        `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES ('_meta', 'last_consumer_outcome', ?)`
-      )
-        .bind(`${new Date().toISOString()} ${outcome.status}`)
-        .run();
+      await setBoardCursor(
+        env.DB,
+        "_meta",
+        "last_consumer_outcome",
+        `${new Date().toISOString()} ${outcome.status}`
+      );
       if (outcome.status === "rate_limited") {
         msg.retry({ delaySeconds: RATE_LIMIT_RETRY_SECONDS });
       } else if (outcome.status === "cache_filling") {
