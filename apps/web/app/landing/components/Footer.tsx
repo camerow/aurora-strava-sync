@@ -8,16 +8,7 @@ const LINKS: Array<[string, string]> = [
 
 export function Footer(): React.ReactElement {
   return (
-    <div
-      style={{
-        borderTop: "1px solid var(--line-on-light)",
-        padding: "28px 56px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 24,
-      }}
-    >
+    <div className="l-footer">
       <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "rgba(64,63,76,0.58)" }}>
         sendtally · not affiliated with Strava or Aurora Climbing
       </span>
