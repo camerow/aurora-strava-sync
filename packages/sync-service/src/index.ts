@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createApp } from "./app";
 import { verifyClerkUser } from "./auth";
 import type { Env, SyncJob } from "./bindings";
-import { shouldEnqueueCatalogueJob, syncBoardCatalogue } from "./catalogue";
+import { claimCatalogueEnqueue, syncBoardCatalogue, type CatalogueOutcome } from "./catalogue";
 import {
   autoSyncBoardConnectionsForBoard,
   boardsWithActiveConnections,
@@ -16,7 +16,7 @@ const RATE_LIMIT_RETRY_SECONDS = 15 * 60;
 const CATALOGUE_CRON = "0 4 * * *";
 const QUEUE_SEND_BATCH_SIZE = 100;
 
-async function sendBatched(queue: Env["SYNC_QUEUE"], jobs: SyncJob[]): Promise<void> {
+export async function sendBatched(queue: Env["SYNC_QUEUE"], jobs: SyncJob[]): Promise<void> {
   for (let i = 0; i < jobs.length; i += QUEUE_SEND_BATCH_SIZE) {
     const chunk = jobs.slice(i, i + QUEUE_SEND_BATCH_SIZE);
     await queue.sendBatch(chunk.map((body) => ({ body })));
@@ -71,14 +71,36 @@ export default {
       const job = parsed.data;
 
       if (job.kind === "catalogue") {
-        const outcome = await syncBoardCatalogue(env, job.board);
+        let outcome: CatalogueOutcome;
+        try {
+          outcome = await syncBoardCatalogue(env, job.board);
+        } catch (err) {
+          await setBoardCursor(
+            env.DB,
+            "_meta",
+            "last_catalogue_error",
+            `${new Date().toISOString()} ${job.board} ${err instanceof Error ? err.message : String(err)}`.slice(
+              0,
+              500
+            )
+          );
+          throw err;
+        }
         await setBoardCursor(
           env.DB,
           "_meta",
           "last_catalogue_outcome",
           `${new Date().toISOString()} ${job.board} ${outcome.status}`
         );
-        if (outcome.status === "continuing") await env.SYNC_QUEUE.send(job);
+        if (outcome.status === "continuing") {
+          await setBoardCursor(
+            env.DB,
+            job.board,
+            "catalogue_enqueued_at",
+            new Date().toISOString()
+          );
+          await env.SYNC_QUEUE.send(job);
+        }
         if (outcome.status === "complete" && outcome.initialFill === true) {
           const waiting = await autoSyncBoardConnectionsForBoard(env.DB, job.board);
           await sendBatched(
@@ -119,9 +141,9 @@ export default {
         msg.retry({ delaySeconds: RATE_LIMIT_RETRY_SECONDS });
       } else if (outcome.status === "catalogue_pending") {
         for (const board of outcome.pendingBoards ?? []) {
-          if (await shouldEnqueueCatalogueJob(env, board)) {
-            await env.SYNC_QUEUE.send({ kind: "catalogue", board });
-          }
+          await claimCatalogueEnqueue(env, board, () =>
+            env.SYNC_QUEUE.send({ kind: "catalogue", board })
+          );
         }
         msg.ack();
       } else {

@@ -109,9 +109,16 @@ async function runCatalogue(
   return { status: "continuing" };
 }
 
-export async function shouldEnqueueCatalogueJob(env: Env, board: string): Promise<boolean> {
+export async function claimCatalogueEnqueue(
+  env: Env,
+  board: string,
+  send: () => Promise<unknown>
+): Promise<boolean> {
   const last = await repo.getBoardCursor(env.DB, board, "catalogue_enqueued_at");
-  if (last !== "" && Date.now() - Date.parse(last) < CATALOGUE_ENQUEUE_DEBOUNCE_MS) return false;
+  const parsed = Date.parse(last);
+  const due = !Number.isFinite(parsed) || Date.now() - parsed >= CATALOGUE_ENQUEUE_DEBOUNCE_MS;
+  if (!due) return false;
+  await send();
   await repo.setBoardCursor(env.DB, board, "catalogue_enqueued_at", new Date().toISOString());
   return true;
 }

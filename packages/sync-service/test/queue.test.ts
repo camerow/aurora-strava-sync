@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import worker from "../src/index";
+import worker, { sendBatched } from "../src/index";
 import type { Env, SyncJob } from "../src/bindings";
 import { encryptSecret } from "../src/lib/crypto";
 import { jsonResponse, makeFakeFetch } from "./fakes";
@@ -264,41 +264,26 @@ describe("queue consumer routing", () => {
     );
   });
 
-  it("chunks a large fan-out into queue sendBatch calls of at most 100 messages", async () => {
-    const board = "tension";
-    const userIds: string[] = [];
-    for (let i = 0; i < 150; i++) {
-      userIds.push(await seedConnection(board, `tok-${i}`, "2026-06-01T00:00:00.000Z"));
-    }
-    const { fetchImpl } = makeFakeFetch([
-      {
-        match: (url) => url.endsWith("/sync"),
-        respond: () =>
-          jsonResponse(200, {
-            climbs: [{ uuid: "c1", name: "Jug Life" }],
-            climb_stats: [{ climb_uuid: "c1", angle: 40, difficulty_average: 20.0 }],
-            shared_syncs: [
-              { table_name: "climb_stats", last_synchronized_at: "2026-08-08 00:00:00.000000" },
-              { table_name: "climbs", last_synchronized_at: "2026-08-08 00:00:00.000000" },
-            ],
-            _complete: true,
-          }),
-      },
-    ]);
-    vi.stubGlobal("fetch", fetchImpl);
-
-    const sent: SyncJob[] = [];
-    const sentJobs: SentJob[] = [];
+  it("chunks a large batch of jobs into sendBatch calls of at most 100 messages", async () => {
+    const jobs: SyncJob[] = Array.from({ length: 150 }, (_, i) => ({
+      kind: "user" as const,
+      userId: `user-${i}`,
+    }));
     const batchSizes: number[] = [];
-    const msg = message({ kind: "catalogue", board });
-    await worker.queue({ messages: [msg] } as never, envWithQueue(sent, sentJobs, batchSizes));
+    const sent: SyncJob[] = [];
+    const queue = {
+      send: async () => {},
+      sendBatch: async (batch: { body: SyncJob }[]) => {
+        batchSizes.push(batch.length);
+        sent.push(...batch.map((b) => b.body));
+      },
+    } as unknown as Env["SYNC_QUEUE"];
 
-    expect(msg.acked).toBe(true);
-    const userJobs = sentJobs.filter((j) => j.body.kind === "user");
-    expect(userJobs).toHaveLength(150);
-    expect(batchSizes.length).toBeGreaterThan(1);
-    expect(batchSizes.every((n) => n <= 100)).toBe(true);
-  }, 30000);
+    await sendBatched(queue, jobs);
+
+    expect(sent).toHaveLength(150);
+    expect(batchSizes).toEqual([100, 50]);
+  });
 
   it("does not fan out user jobs after a routine daily catalogue refresh", async () => {
     const board = "touchstone";
@@ -332,6 +317,142 @@ describe("queue consumer routing", () => {
 
     expect(msg.acked).toBe(true);
     expect(sentJobs).toHaveLength(0);
+  });
+
+  it("treats a corrupt catalogue_enqueued_at cursor as due rather than blocking forever", async () => {
+    const board = "decoy_corrupt";
+    const userId = await seedConnection(board, "tok-corrupt", "2026-06-01T00:00:00.000Z");
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'catalogue_enqueued_at', 'not-a-date')`
+    )
+      .bind(board)
+      .run();
+
+    const sent: SyncJob[] = [];
+    const msg = message({ kind: "user", userId });
+    await worker.queue({ messages: [msg] } as never, envWithQueue(sent));
+
+    expect(sent).toEqual([{ kind: "catalogue", board }]);
+  });
+
+  it("does not claim the catalogue enqueue window when the send fails", async () => {
+    const board = "decoy_send_fail";
+    const userId = await seedConnection(board, "tok-fail", "2026-06-01T00:00:00.000Z");
+
+    const failingEnv = {
+      ...env,
+      SYNC_QUEUE: {
+        send: async () => {
+          throw new Error("queue unavailable");
+        },
+        sendBatch: async () => {},
+      },
+    } as unknown as Env;
+
+    const msg = message({ kind: "user", userId });
+    await expect(worker.queue({ messages: [msg] } as never, failingEnv)).rejects.toThrow(
+      "queue unavailable"
+    );
+
+    const stamp = await boardCursorValue(board, "catalogue_enqueued_at");
+    expect(stamp).toBeNull();
+  });
+
+  it("refreshes catalogue_enqueued_at on each continuing round of an initial fill", async () => {
+    const board = "tension";
+    await seedConnection(board, "tok-chain", "2026-06-01T00:00:00.000Z");
+    let n = 0;
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () => {
+          n++;
+          return jsonResponse(200, {
+            climbs: [{ uuid: `c${n}`, name: `Climb ${n}` }],
+            climb_stats: [],
+            shared_syncs: [
+              {
+                table_name: "climb_stats",
+                last_synchronized_at: `2026-08-${String(n).padStart(2, "0")} 00:00:00.000000`,
+              },
+              {
+                table_name: "climbs",
+                last_synchronized_at: `2026-08-${String(n).padStart(2, "0")} 00:00:00.000000`,
+              },
+            ],
+            _complete: false,
+          });
+        },
+      },
+    ]);
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const sent1: SyncJob[] = [];
+    await worker.queue(
+      { messages: [message({ kind: "catalogue", board })] } as never,
+      envWithQueue(sent1)
+    );
+    const firstStamp = await boardCursorValue(board, "catalogue_enqueued_at");
+    expect(firstStamp).not.toBeNull();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const sent2: SyncJob[] = [];
+    await worker.queue(
+      { messages: [message({ kind: "catalogue", board })] } as never,
+      envWithQueue(sent2)
+    );
+    const secondStamp = await boardCursorValue(board, "catalogue_enqueued_at");
+    expect(secondStamp).not.toBeNull();
+    expect(secondStamp).not.toBe(firstStamp);
+  });
+
+  it("writes a last_catalogue_error breadcrumb before rethrowing from the catalogue branch", async () => {
+    const board = "decoy";
+    await seedConnection(board, "tok-stuck", "2026-06-01T00:00:00.000Z");
+    const stuckTimestamp = "2026-07-01 00:00:00.000000";
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
+    )
+      .bind(board)
+      .run();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'climb_stats', ?)`
+    )
+      .bind(board, stuckTimestamp)
+      .run();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'climbs', ?)`
+    )
+      .bind(board, stuckTimestamp)
+      .run();
+
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () =>
+          jsonResponse(200, {
+            climbs: [],
+            climb_stats: [],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: stuckTimestamp },
+              { table_name: "climbs", last_synchronized_at: stuckTimestamp },
+            ],
+            _complete: false,
+          }),
+      },
+    ]);
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const msg = message({ kind: "catalogue", board });
+    await expect(worker.queue({ messages: [msg] } as never, envWithQueue([]))).rejects.toThrow(
+      "made no progress"
+    );
+
+    const breadcrumb = await boardCursorValue("_meta", "last_catalogue_error");
+    expect(breadcrumb).not.toBeNull();
+    expect(breadcrumb).toContain(board);
+    expect(breadcrumb).toContain("made no progress");
   });
 });
 

@@ -628,6 +628,124 @@ describe("syncOneUser", () => {
       .bind(userId)
       .first<{ last_synced_at: string | null; last_error: string | null }>();
     expect(syncState?.last_synced_at).not.toBeNull();
-    expect(syncState?.last_error).toBeNull();
+    expect(syncState?.last_error).toBe("waiting for board catalogue");
+  });
+
+  it("does not write the miss-refresh timestamp when the refresh is incomplete", async () => {
+    await seedUser(userId, 74, 44, "touchstone");
+    let sharedCalls = 0;
+    const { fetchImpl } = makeFakeFetch([
+      auroraRoutes()[0]!,
+      {
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
+        respond: () => {
+          sharedCalls++;
+          return jsonResponse(200, {
+            climbs: [
+              { uuid: "c1", name: "Jug Life" },
+              { uuid: "c2", name: "Crimp Reaper" },
+            ],
+            climb_stats: [],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-05 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-05 00:00:00.000000" },
+            ],
+            _complete: false,
+          });
+        },
+      },
+      stravaCreateRoute(201, 7004),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome.status).toBe("synced");
+    expect(sharedCalls).toBe(4);
+
+    const cursor = await env.DB.prepare(
+      `SELECT value FROM board_cursors WHERE board = ? AND table_name = 'last_miss_refresh_at'`
+    )
+      .bind("touchstone")
+      .first<{ value: string }>();
+    expect(cursor).toBeNull();
+  });
+
+  it("treats a corrupt miss-refresh timestamp as due rather than blocking forever", async () => {
+    await seedUser(userId, 76, 46, "soill");
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'last_miss_refresh_at', 'not-a-date')`
+    )
+      .bind("soill")
+      .run();
+
+    let sharedCalls = 0;
+    const { fetchImpl } = makeFakeFetch([
+      auroraRoutes()[0]!,
+      {
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
+        respond: () => {
+          sharedCalls++;
+          return jsonResponse(200, {
+            climbs: [
+              { uuid: "c1", name: "Jug Life" },
+              { uuid: "c2", name: "Crimp Reaper" },
+              { uuid: "c3", name: "Mind Meld" },
+            ],
+            climb_stats: [{ climb_uuid: "c3", angle: 40, difficulty_average: 24.2 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-07 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-07 00:00:00.000000" },
+            ],
+            _complete: true,
+          });
+        },
+      },
+      stravaCreateRoute(201, 7006),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome.status).toBe("synced");
+    expect(sharedCalls).toBe(1);
+  });
+
+  it("does not write the miss-refresh timestamp when a complete refresh resolves the miss", async () => {
+    await seedUser(userId, 75, 45, "decoy");
+    let sharedCalls = 0;
+    const { fetchImpl } = makeFakeFetch([
+      auroraRoutes()[0]!,
+      {
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
+        respond: () => {
+          sharedCalls++;
+          return jsonResponse(200, {
+            climbs: [
+              { uuid: "c1", name: "Jug Life" },
+              { uuid: "c2", name: "Crimp Reaper" },
+              { uuid: "c3", name: "Mind Meld" },
+            ],
+            climb_stats: [{ climb_uuid: "c3", angle: 40, difficulty_average: 24.2 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-06 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-06 00:00:00.000000" },
+            ],
+            _complete: true,
+          });
+        },
+      },
+      stravaCreateRoute(201, 7005),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome.status).toBe("synced");
+    expect(sharedCalls).toBe(1);
+
+    const cursor = await env.DB.prepare(
+      `SELECT value FROM board_cursors WHERE board = ? AND table_name = 'last_miss_refresh_at'`
+    )
+      .bind("decoy")
+      .first<{ value: string }>();
+    expect(cursor).toBeNull();
   });
 });

@@ -8,7 +8,11 @@ import {
   type Session,
 } from "@sendtally/core";
 import type { Env } from "./bindings";
-import { CACHE_REFRESH_PAGES, refreshSharedCache } from "./catalogue";
+import {
+  CACHE_REFRESH_PAGES,
+  refreshSharedCache,
+  type SharedCacheRefreshResult,
+} from "./catalogue";
 import {
   AuroraClient,
   baseUrlFor,
@@ -80,7 +84,13 @@ export async function syncOneUser(
     await repo.recordSyncResult(
       env.DB,
       userId,
-      stravaDead ? "strava token rejected" : boardDead ? "board token rejected" : null
+      stravaDead
+        ? "strava token rejected"
+        : boardDead
+          ? "board token rejected"
+          : status === "catalogue_pending"
+            ? "waiting for board catalogue"
+            : null
     );
   }
   if (status === "catalogue_pending") {
@@ -136,12 +146,20 @@ async function syncOneBoard(
       boardConn.board,
       "last_miss_refresh_at"
     );
+    const parsedMissRefresh = Date.parse(lastMissRefresh);
     const dueForMissRefresh =
-      lastMissRefresh === "" ||
-      Date.now() - Date.parse(lastMissRefresh) >= MISS_REFRESH_INTERVAL_MS;
+      !Number.isFinite(parsedMissRefresh) ||
+      Date.now() - parsedMissRefresh >= MISS_REFRESH_INTERVAL_MS;
     if (dueForMissRefresh) {
+      let refreshResult: SharedCacheRefreshResult;
       try {
-        await refreshSharedCache(env, aurora, boardConn.board, boardToken, CACHE_REFRESH_PAGES);
+        refreshResult = await refreshSharedCache(
+          env,
+          aurora,
+          boardConn.board,
+          boardToken,
+          CACHE_REFRESH_PAGES
+        );
       } catch (err) {
         if (err instanceof BoardTokenRejectedError) {
           await repo.markBoardConnectionDead(env.DB, userId, boardConn.board);
@@ -149,12 +167,24 @@ async function syncOneBoard(
         }
         throw err;
       }
-      await repo.setBoardCursor(
-        env.DB,
-        boardConn.board,
-        "last_miss_refresh_at",
-        new Date().toISOString()
-      );
+      if (refreshResult.complete) {
+        const namesAfter = await repo.climbNamesFor(env.DB, boardConn.board, referenced);
+        const gradesAfter = await repo.climbVGradesFor(
+          env.DB,
+          boardConn.board,
+          bids.map((b) => b.climb_uuid)
+        );
+        const stillMissingName = referenced.some((uuid) => !namesAfter.has(uuid));
+        const stillMissingGrade = bids.some((b) => !gradesAfter.has(`${b.climb_uuid}:${b.angle}`));
+        if (stillMissingName || stillMissingGrade) {
+          await repo.setBoardCursor(
+            env.DB,
+            boardConn.board,
+            "last_miss_refresh_at",
+            new Date().toISOString()
+          );
+        }
+      }
     }
   }
 
