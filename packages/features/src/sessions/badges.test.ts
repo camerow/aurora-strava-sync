@@ -46,4 +46,8 @@ describe("sessionBadge", () => {
   it("still reports on_strava for a posted session", () => {
     expect(sessionBadge(session({ strava_activity_id: 9 }), status())).toBe("on_strava");
   });
+
+  it("prefers in_progress over not_posted", () => {
+    expect(sessionBadge(session({ inProgress: true }), null)).toBe("in_progress");
+  });
 });

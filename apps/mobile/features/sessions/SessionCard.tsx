@@ -54,11 +54,13 @@ export function SessionCard({
         }}
       >
         <Text
+          numberOfLines={1}
           style={{
             fontFamily: fonts.monoMedium,
             fontSize: 10,
             letterSpacing: 0.8,
             color: colors.textMuted,
+            flexShrink: 1,
           }}
         >
           {dateLine}

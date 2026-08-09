@@ -45,7 +45,7 @@ export function SessionRowItem({
       to={`/app/sessions/${encodeURIComponent(session.fingerprint)}`}
       style={{
         display: "grid",
-        gridTemplateColumns: "72px 1.1fr 1.5fr auto 14px",
+        gridTemplateColumns: "72px 1.1fr 1.5fr minmax(112px, auto) 14px",
         gap: 18,
         alignItems: "center",
         background: "#F7F6F3",
