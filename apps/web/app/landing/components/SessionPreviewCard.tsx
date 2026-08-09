@@ -14,7 +14,15 @@ export function SessionPreviewCard(): React.ReactElement {
         color: "var(--bs-gunmetal)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "16px 18px 12px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 11,
+          padding: "16px 18px 12px",
+        }}
+      >
         <div
           style={{
             width: 40,
@@ -44,7 +52,7 @@ export function SessionPreviewCard(): React.ReactElement {
             Today at 6:42 PM · Rock Climbing
           </span>
         </div>
-        <Badge tone="azure" pill={false} style={{ marginLeft: "auto" }}>
+        <Badge tone="azure" pill={false} style={{ marginLeft: "auto", whiteSpace: "nowrap" }}>
           via sendtally
         </Badge>
       </div>

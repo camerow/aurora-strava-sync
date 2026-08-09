@@ -1,17 +1,21 @@
 import React from "react";
 
-export type Stat = { label: string; value: string };
+export type StatGridItem = { label: string; value: string; accent?: boolean };
 
-export type StatStripProps = { stats?: Stat[] };
-
-export function StatStrip({ stats = [] }: StatStripProps): React.ReactElement {
+export function StatGrid({
+  items,
+  tone = "soft",
+}: {
+  items: StatGridItem[];
+  tone?: "soft" | "white";
+}): React.ReactElement {
   return (
     <div
-      className="ds-statstrip"
-      style={{ "--statstrip-cols": stats.length || 1 } as React.CSSProperties}
+      className={tone === "white" ? "l-statgrid l-statgrid--white" : "l-statgrid"}
+      style={{ "--statgrid-cols": items.length } as React.CSSProperties}
     >
-      {stats.map((s) => (
-        <div key={s.label} className="ds-statstrip-cell">
+      {items.map((s) => (
+        <div key={s.label} className="l-statgrid-cell">
           <span
             style={{
               fontFamily: "var(--font-mono)",
@@ -28,7 +32,7 @@ export function StatStrip({ stats = [] }: StatStripProps): React.ReactElement {
               fontFamily: "var(--font-mono)",
               fontWeight: 600,
               fontSize: 17,
-              color: "var(--bs-gunmetal)",
+              color: s.accent === true ? "var(--text-label-accent)" : "var(--bs-gunmetal)",
             }}
           >
             {s.value}
