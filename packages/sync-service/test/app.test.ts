@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app";
 import type { Env } from "../src/bindings";
 import { decryptSecret, encryptSecret } from "../src/lib/crypto";
+import { wallClockNow } from "../src/lib/time";
 import { jsonResponse, makeFakeFetch } from "./fakes";
 
 function testApp(fetchImpl?: typeof fetch) {
@@ -367,5 +368,85 @@ describe("app", () => {
       auto_sync: number;
     }>();
     expect(user?.auto_sync).toBe(0);
+  });
+
+  it("marks recent sessions in progress and settled ones not", async () => {
+    const userId = "user_in_progress";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', ?)`)
+      .bind(userId, new Date().toISOString())
+      .run();
+
+    const recentEnd = new Date(Date.now() - 5 * 60_000).toISOString();
+    const oldEnd = new Date(Date.now() - 5 * 60 * 60_000).toISOString();
+    const insert = `INSERT INTO sessions (user_id, fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json)
+       VALUES (?, ?, 'tension', ?, ?, 1, 4, 5, 'T', 'S', '[]')`;
+    await env.DB.prepare(insert)
+      .bind(userId, "fp_recent", new Date(Date.now() - 65 * 60_000).toISOString(), recentEnd)
+      .run();
+    await env.DB.prepare(insert)
+      .bind(userId, "fp_old", new Date(Date.now() - 6 * 60 * 60_000).toISOString(), oldEnd)
+      .run();
+
+    const res = await testApp().request(
+      "/v1/sessions",
+      { headers: { "x-test-user": userId } },
+      env
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      sessions: Array<{ fingerprint: string; inProgress: boolean }>;
+    };
+    const byFingerprint = new Map(body.sessions.map((s) => [s.fingerprint, s.inProgress]));
+    expect(byFingerprint.get("fp_recent")).toBe(true);
+    expect(byFingerprint.get("fp_old")).toBe(false);
+
+    const detail = await testApp().request(
+      "/v1/sessions/fp_recent",
+      { headers: { "x-test-user": userId } },
+      env
+    );
+    const detailBody = (await detail.json()) as { session: { inProgress: boolean } };
+    expect(detailBody.session.inProgress).toBe(true);
+  });
+
+  it("uses the user's wall clock timezone, not raw UTC now, to decide in progress", async () => {
+    const userId = "user_in_progress_tz";
+    const timezone = "America/Los_Angeles";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, ?, ?)`)
+      .bind(userId, timezone, new Date().toISOString())
+      .run();
+
+    const userWallClockNow = wallClockNow(timezone);
+    const recentEnd = new Date(userWallClockNow.getTime() - 5 * 60_000).toISOString();
+    const insert = `INSERT INTO sessions (user_id, fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json)
+       VALUES (?, ?, 'tension', ?, ?, 1, 4, 5, 'T', 'S', '[]')`;
+    await env.DB.prepare(insert)
+      .bind(
+        userId,
+        "fp_tz_recent",
+        new Date(userWallClockNow.getTime() - 65 * 60_000).toISOString(),
+        recentEnd
+      )
+      .run();
+
+    const res = await testApp().request(
+      "/v1/sessions",
+      { headers: { "x-test-user": userId } },
+      env
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      sessions: Array<{ fingerprint: string; inProgress: boolean }>;
+    };
+    const byFingerprint = new Map(body.sessions.map((s) => [s.fingerprint, s.inProgress]));
+    expect(byFingerprint.get("fp_tz_recent")).toBe(true);
+
+    const detail = await testApp().request(
+      "/v1/sessions/fp_tz_recent",
+      { headers: { "x-test-user": userId } },
+      env
+    );
+    const detailBody = (await detail.json()) as { session: { inProgress: boolean } };
+    expect(detailBody.session.inProgress).toBe(true);
   });
 });

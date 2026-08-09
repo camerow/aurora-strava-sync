@@ -39,6 +39,7 @@ export type SessionRow = {
   title: string;
   strava_activity_id: number | null;
   posted_at: string | null;
+  inProgress: boolean;
 };
 
 export type SessionDetail = SessionRow & { climbs: SessionClimb[] };

@@ -20,6 +20,7 @@ function session(
     title: "",
     strava_activity_id: null,
     posted_at: null,
+    inProgress: false,
     climbs: climbs.map((c, i) => ({
       time: startIso,
       name: `c${i}`,

@@ -122,9 +122,14 @@ async function syncOneBoard(
   const sessions = buildSessions(climbs, defaultSessionConfig(), wallClockNow(user.timezone));
 
   const effortCfg = defaultEffortConfig();
-  const scored = sessions.map((sess, i) => ({
+  const completed = sessions.filter((s) => !s.inProgress);
+  const scored = sessions.map((sess) => ({
     sess,
-    result: score(sess, [...sessions.slice(0, i), ...sessions.slice(i + 1)], effortCfg),
+    result: score(
+      sess,
+      completed.filter((h) => h !== sess),
+      effortCfg
+    ),
     fp: fingerprint(boardConn.board_user_id, sess.climbs[0]!.time),
   }));
 
@@ -160,7 +165,9 @@ async function syncOneBoard(
   const posted = await repo.postedSessionFingerprints(env.DB, userId);
   const toPost = scored.filter(
     (s) =>
-      !posted.has(s.fp) && (postCutoff === null || s.sess.start.getTime() >= postCutoff.getTime())
+      !s.sess.inProgress &&
+      !posted.has(s.fp) &&
+      (postCutoff === null || s.sess.start.getTime() >= postCutoff.getTime())
   );
 
   const strava = new StravaClient(

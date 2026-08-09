@@ -20,6 +20,7 @@ function mkSession(day: number, hour: number, n: number, grade: number): Session
     start: new Date(first.time.getTime() - 10 * 60_000),
     end: new Date(last.time.getTime() + 5 * 60_000),
     climbs,
+    inProgress: false,
   };
 }
 
@@ -49,6 +50,7 @@ describe("sessionPoints", () => {
         { time: at(1, 18, 0), vGrade: 4, name: "", kind: "send", tries: 1 },
         { time: at(1, 18, 10), vGrade: 4, name: "", kind: "attempt", tries: 1 },
       ],
+      inProgress: false,
     };
     expect(sessionPoints(s, defaultEffortConfig())).toBe(4 + 4 * 0.4);
   });
@@ -96,6 +98,7 @@ describe("score", () => {
         { time: at(1, 18, 10), vGrade: 7, name: "Crimp Reaper", kind: "send", tries: 1 },
         { time: at(1, 18, 20), vGrade: 7, name: "Crimp Reaper", kind: "attempt", tries: 3 },
       ],
+      inProgress: false,
     };
     const res = score(s, [], defaultEffortConfig());
     for (const want of [
@@ -118,6 +121,7 @@ describe("score", () => {
       start: at(1, 17, 50),
       end: at(1, 18, 5),
       climbs: [{ time: at(1, 18, 0), vGrade: -1, name: "", kind: "attempt", tries: 1 }],
+      inProgress: false,
     };
     const res = score(s, [], defaultEffortConfig());
     expect(res.summary).not.toContain("avg");

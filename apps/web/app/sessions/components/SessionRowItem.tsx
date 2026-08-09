@@ -11,6 +11,10 @@ function durationLabel(startAt: string, endAt: string): string {
 }
 
 const BADGE_STYLES: Record<SessionBadge, { border: string; color: string }> = {
+  in_progress: {
+    border: "1px solid rgba(196,48,61,0.4)",
+    color: "var(--bs-watermelon-ink)",
+  },
   on_strava: {
     border: "1px solid rgba(27,98,206,0.4)",
     color: "var(--bs-azure-ink)",
@@ -41,7 +45,7 @@ export function SessionRowItem({
       to={`/app/sessions/${encodeURIComponent(session.fingerprint)}`}
       style={{
         display: "grid",
-        gridTemplateColumns: "72px 1.1fr 1.5fr auto 14px",
+        gridTemplateColumns: "72px 1.1fr 1.5fr minmax(112px, auto) 14px",
         gap: 18,
         alignItems: "center",
         background: "#F7F6F3",
