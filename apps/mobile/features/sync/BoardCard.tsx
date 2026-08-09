@@ -2,7 +2,19 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { StravaPostingMode } from "@sendtally/api-client";
 import type { BoardCardVM } from "@sendtally/features/sync-settings";
-import { colors, fonts, radius } from "@sendtally/design/tokens";
+import { colors } from "@sendtally/design/tokens";
+import {
+  bodyText,
+  boardName,
+  chipButton,
+  chipButtonLabel,
+  messageText,
+  monoMuted,
+  primaryButton,
+  primaryButtonLabel,
+  underlineLabel,
+  underlinePress,
+} from "./styles";
 
 export type BoardCardProps = {
   board: BoardCardVM;
@@ -31,136 +43,58 @@ export function BoardCard({
       }}
     >
       <View style={{ gap: 2 }}>
-        <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.gunmetal }}>
-          {board.label}
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.monoMedium,
-            fontSize: 9,
-            letterSpacing: 0.7,
-            color: colors.textMuted,
-          }}
-        >
-          {board.statusLabel}
-        </Text>
+        <Text style={boardName}>{board.label}</Text>
+        <Text style={monoMuted}>{board.statusLabel}</Text>
       </View>
 
       {board.isActive && (
         <Pressable
           onPress={onSync}
           disabled={board.syncDisabled}
-          style={{
-            backgroundColor: colors.azureInk,
-            borderRadius: radius.control,
-            paddingVertical: 14,
-            minHeight: 48,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: board.syncDisabled ? 0.45 : 1,
-          }}
+          style={{ ...primaryButton, opacity: board.syncDisabled ? 0.45 : 1 }}
         >
-          <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 15, color: colors.white }}>
-            {board.syncing ? "Syncing…" : "Sync now"}
-          </Text>
+          <Text style={primaryButtonLabel}>{board.syncing ? "Syncing…" : "Sync now"}</Text>
         </Pressable>
       )}
 
       {board.isActive &&
         (stravaActive ? (
           <View style={{ gap: 8 }}>
-            <Text
-              style={{
-                fontFamily: fonts.monoMedium,
-                fontSize: 9,
-                letterSpacing: 0.7,
-                color: colors.textMuted,
-              }}
-            >
-              {board.postingLabel}
-            </Text>
+            <Text style={monoMuted}>{board.postingLabel}</Text>
             {board.postingEnabled ? (
               <Pressable
                 onPress={() => onPosting("off")}
                 disabled={postingBusy}
-                style={{ minHeight: 44, justifyContent: "center" }}
+                style={underlinePress}
               >
-                <Text
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 11,
-                    letterSpacing: 0.6,
-                    color: "rgba(64,63,76,0.6)",
-                    textDecorationLine: "underline",
-                  }}
-                >
-                  TURN OFF STRAVA POSTING
-                </Text>
+                <Text style={underlineLabel}>TURN OFF STRAVA POSTING</Text>
               </Pressable>
             ) : (
               <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
                 <Pressable
                   onPress={() => onPosting("new")}
                   disabled={postingBusy}
-                  style={{
-                    backgroundColor: colors.azureInk,
-                    borderRadius: radius.control,
-                    paddingHorizontal: 14,
-                    minHeight: 44,
-                    justifyContent: "center",
-                  }}
+                  style={chipButton}
                 >
-                  <Text
-                    style={{ fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.white }}
-                  >
-                    Post new sessions
-                  </Text>
+                  <Text style={chipButtonLabel}>Post new sessions</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => onPosting("all")}
                   disabled={postingBusy}
-                  style={{
-                    backgroundColor: colors.watermelonInk,
-                    borderRadius: radius.control,
-                    paddingHorizontal: 14,
-                    minHeight: 44,
-                    justifyContent: "center",
-                  }}
+                  style={{ ...chipButton, backgroundColor: colors.watermelonInk }}
                 >
-                  <Text
-                    style={{ fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.white }}
-                  >
-                    Post full history
-                  </Text>
+                  <Text style={chipButtonLabel}>Post full history</Text>
                 </Pressable>
               </View>
             )}
           </View>
         ) : (
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 13,
-              lineHeight: 20,
-              color: colors.textSecondary,
-            }}
-          >
-            Connect Strava on the web at sendtally.com to post this board&rsquo;s sessions.
+          <Text style={bodyText}>
+            Connect Strava on the web at sendtally.com to post this board’s sessions.
           </Text>
         ))}
 
-      {message !== null && (
-        <Text
-          style={{
-            fontFamily: fonts.mono,
-            fontSize: 11,
-            lineHeight: 17,
-            color: colors.textSecondary,
-          }}
-        >
-          {message}
-        </Text>
-      )}
+      {message !== null && <Text style={messageText}>{message}</Text>}
     </View>
   );
 }
