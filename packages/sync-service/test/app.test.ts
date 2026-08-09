@@ -51,7 +51,8 @@ describe("app", () => {
       fakeEnv
     );
     expect(res.status).toBe(200);
-    expect(queued).toEqual([{ kind: "user", userId: "user_connect", board: "tension" }]);
+    expect(queued).toContainEqual({ kind: "catalogue", board: "tension" });
+    expect(queued).toContainEqual({ kind: "user", userId: "user_connect", board: "tension" });
     expect(await res.json()).toEqual({ board: "tension", boardUserId: 42 });
 
     const loginCall = calls.find((c) => c.url.endsWith("/sessions"));

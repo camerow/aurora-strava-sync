@@ -155,6 +155,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       token_ciphertext: await encryptSecret(session.token, c.env.TOKEN_KEY),
       sync_since: null,
     });
+    await c.env.SYNC_QUEUE.send({ kind: "catalogue", board });
     await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
     return c.json({ board, boardUserId: session.userId });
   });
