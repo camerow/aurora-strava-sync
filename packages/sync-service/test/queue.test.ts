@@ -22,10 +22,17 @@ function message(body: unknown): Msg {
   return m;
 }
 
-function envWithQueue(sent: SyncJob[]): Env {
+type SentJob = { body: SyncJob; options?: { delaySeconds?: number } };
+
+function envWithQueue(sent: SyncJob[], sentJobs: SentJob[] = []): Env {
   return {
     ...env,
-    SYNC_QUEUE: { send: async (b: SyncJob) => void sent.push(b) },
+    SYNC_QUEUE: {
+      send: async (b: SyncJob, options?: { delaySeconds?: number }) => {
+        sent.push(b);
+        sentJobs.push({ body: b, options });
+      },
+    },
   } as unknown as Env;
 }
 
@@ -131,5 +138,19 @@ describe("queue consumer routing", () => {
     expect(msg.acked).toBe(true);
     expect(msg.retried).toBe(false);
     expect(sent).toEqual([{ kind: "catalogue", board }]);
+  });
+
+  it("re-enqueues a user job with a delay when the board catalogue is pending", async () => {
+    const board = "so_ill";
+    const userId = await seedConnection(board, "tok-pending", "2026-06-01T00:00:00.000Z");
+
+    const sent: SyncJob[] = [];
+    const sentJobs: SentJob[] = [];
+    const msg = message({ kind: "user", userId });
+    await worker.queue({ messages: [msg] } as never, envWithQueue(sent, sentJobs));
+
+    expect(msg.acked).toBe(true);
+    expect(msg.retried).toBe(false);
+    expect(sentJobs).toEqual([{ body: { kind: "user", userId }, options: { delaySeconds: 60 } }]);
   });
 });

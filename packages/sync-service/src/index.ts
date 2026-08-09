@@ -8,6 +8,7 @@ import { syncOneUser } from "./pipeline";
 
 const SYNC_INTERVAL_MS = 23 * 60 * 60 * 1000;
 const RATE_LIMIT_RETRY_SECONDS = 15 * 60;
+const CATALOGUE_PENDING_RETRY_SECONDS = 60;
 
 const queuedJobSchema = z.union([
   z.object({ kind: z.literal("catalogue"), board: z.string() }),
@@ -83,7 +84,7 @@ export default {
       if (outcome.status === "rate_limited") {
         msg.retry({ delaySeconds: RATE_LIMIT_RETRY_SECONDS });
       } else if (outcome.status === "catalogue_pending") {
-        await env.SYNC_QUEUE.send(job);
+        await env.SYNC_QUEUE.send(job, { delaySeconds: CATALOGUE_PENDING_RETRY_SECONDS });
         msg.ack();
       } else {
         msg.ack();

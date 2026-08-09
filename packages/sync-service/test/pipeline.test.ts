@@ -5,13 +5,18 @@ import { syncOneUser } from "../src/pipeline";
 import { jsonResponse, makeFakeFetch, type FakeRoute, type RecordedCall } from "./fakes";
 
 const FAR_FUTURE = 4102444800;
-const UNSEEDED_CATALOGUE_BOARD = "grasshopper";
+const DEFERRAL_TEST_BOARD = "grasshopper";
+
+type SeedUserOptions = {
+  catalogueComplete?: boolean;
+};
 
 async function seedUser(
   userId: string,
   boardUserId: number,
   athleteId: number,
-  board = "tension"
+  board = "tension",
+  { catalogueComplete = true }: SeedUserOptions = {}
 ): Promise<void> {
   await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', ?)`)
     .bind(userId, new Date().toISOString())
@@ -41,7 +46,7 @@ async function seedUser(
       new Date().toISOString()
     )
     .run();
-  if (board !== UNSEEDED_CATALOGUE_BOARD) {
+  if (catalogueComplete) {
     await env.DB.prepare(
       `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
     )
@@ -525,7 +530,7 @@ describe("syncOneUser", () => {
   });
 
   it("defers and persists nothing when the board catalogue has never completed", async () => {
-    await seedUser(userId, 61, 31, "grasshopper");
+    await seedUser(userId, 61, 31, DEFERRAL_TEST_BOARD, { catalogueComplete: false });
     const { fetchImpl, calls } = makeFakeFetch([...auroraRoutes(), stravaCreateRoute(201, 4001)]);
 
     const outcome = await syncOneUser(env, userId, fetchImpl);
