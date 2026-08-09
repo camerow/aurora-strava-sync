@@ -43,7 +43,7 @@ describe("syncBoardCatalogue", () => {
     const { fetchImpl } = makeFakeFetch([cataloguePage(true, "2026-08-01 00:00:00.000000")]);
 
     const outcome = await syncBoardCatalogue(env, board, fetchImpl);
-    expect(outcome).toEqual({ status: "complete" });
+    expect(outcome).toEqual({ status: "complete", initialFill: true });
 
     const row = await env.DB.prepare(
       `SELECT name FROM board_climb_names WHERE board = ? AND climb_uuid = 'c1'`
@@ -100,7 +100,7 @@ describe("syncBoardCatalogue", () => {
     ]);
 
     const outcome = await syncBoardCatalogue(env, board, fetchImpl);
-    expect(outcome).toEqual({ status: "complete" });
+    expect(outcome).toEqual({ status: "complete", initialFill: true });
 
     const conn = await env.DB.prepare(
       `SELECT status FROM board_connections WHERE user_id = ? AND board = ?`
@@ -115,5 +115,56 @@ describe("syncBoardCatalogue", () => {
     expect(await syncBoardCatalogue(env, "soill", fetchImpl)).toEqual({
       status: "no_credentials",
     });
+  });
+
+  it("takes the daily refresh path for a board with a complete catalogue and reports complete", async () => {
+    const board = "aurora";
+    await seedConnection(board, "tok-live", "2026-06-01T00:00:00.000Z");
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
+    )
+      .bind(board)
+      .run();
+    const { fetchImpl } = makeFakeFetch([cataloguePage(true, "2026-08-08 00:00:00.000000")]);
+
+    const outcome = await syncBoardCatalogue(env, board, fetchImpl);
+    expect(outcome).toEqual({ status: "complete" });
+  });
+
+  it("reports continuing when the daily refresh exhausts its page budget", async () => {
+    const board = "grasshopper";
+    await seedConnection(board, "tok-live", "2026-06-01T00:00:00.000Z");
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
+    )
+      .bind(board)
+      .run();
+    let n = 0;
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () => {
+          n++;
+          return jsonResponse(200, {
+            climbs: [{ uuid: `c${n}`, name: `Climb ${n}` }],
+            climb_stats: [],
+            shared_syncs: [
+              {
+                table_name: "climb_stats",
+                last_synchronized_at: `2026-08-${String(n).padStart(2, "0")} 00:00:00.000000`,
+              },
+              {
+                table_name: "climbs",
+                last_synchronized_at: `2026-08-${String(n).padStart(2, "0")} 00:00:00.000000`,
+              },
+            ],
+            _complete: false,
+          });
+        },
+      },
+    ]);
+
+    const outcome = await syncBoardCatalogue(env, board, fetchImpl);
+    expect(outcome).toEqual({ status: "continuing" });
   });
 });

@@ -47,11 +47,7 @@ async function seedUser(
     )
     .run();
   if (catalogueComplete) {
-    await env.DB.prepare(
-      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
-    )
-      .bind(board)
-      .run();
+    await markCatalogueComplete(board);
   }
 }
 
@@ -529,12 +525,60 @@ describe("syncOneUser", () => {
     expect(row?.summary).toContain("Jug Life");
   });
 
+  it("refreshes the catalogue when a bid's grade is missing even though its name is cached", async () => {
+    await seedUser(userId, 72, 42, "kilter");
+    await env.DB.prepare(
+      `INSERT INTO board_climb_names (board, climb_uuid, name) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)`
+    )
+      .bind("kilter", "c1", "Jug Life", "kilter", "c2", "Crimp Reaper", "kilter", "c3", "Mind Meld")
+      .run();
+
+    let sharedCalls = 0;
+    const { fetchImpl } = makeFakeFetch([
+      auroraRoutes()[0]!,
+      {
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
+        respond: () => {
+          sharedCalls++;
+          return jsonResponse(200, {
+            climbs: [
+              { uuid: "c1", name: "Jug Life" },
+              { uuid: "c2", name: "Crimp Reaper" },
+              { uuid: "c3", name: "Mind Meld" },
+            ],
+            climb_stats: [{ climb_uuid: "c3", angle: 40, difficulty_average: 24.2 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-03 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-03 00:00:00.000000" },
+            ],
+            _complete: true,
+          });
+        },
+      },
+      stravaCreateRoute(201, 7002),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome.status).toBe("synced");
+    expect(sharedCalls).toBe(1);
+
+    const row = await env.DB.prepare(`SELECT summary FROM sessions WHERE user_id = ?`)
+      .bind(userId)
+      .first<{ summary: string }>();
+    expect(row?.summary).toContain("✗ V8 Mind Meld");
+  });
+
   it("defers and persists nothing when the board catalogue has never completed", async () => {
     await seedUser(userId, 61, 31, DEFERRAL_TEST_BOARD, { catalogueComplete: false });
     const { fetchImpl, calls } = makeFakeFetch([...auroraRoutes(), stravaCreateRoute(201, 4001)]);
 
     const outcome = await syncOneUser(env, userId, fetchImpl);
-    expect(outcome).toEqual({ status: "catalogue_pending", posted: 0 });
+    expect(outcome).toEqual({
+      status: "catalogue_pending",
+      posted: 0,
+      pendingBoards: [DEFERRAL_TEST_BOARD],
+    });
 
     const rows = await env.DB.prepare(`SELECT fingerprint FROM sessions WHERE user_id = ?`)
       .bind(userId)

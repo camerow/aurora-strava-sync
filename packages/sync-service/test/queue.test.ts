@@ -91,6 +91,11 @@ describe("queue consumer routing", () => {
     await worker.queue({ messages: [msg] } as never, envWithQueue(sent));
     expect(msg.acked).toBe(true);
     expect(sent).toHaveLength(0);
+
+    const outcome = await boardCursorValue("_meta", "last_catalogue_outcome");
+    expect(outcome).not.toBeNull();
+    expect(outcome).toContain("soill");
+    expect(outcome).toContain("no_credentials");
   });
 
   it("acks a malformed message instead of retrying it forever", async () => {
@@ -140,8 +145,8 @@ describe("queue consumer routing", () => {
     expect(sent).toEqual([{ kind: "catalogue", board }]);
   });
 
-  it("re-enqueues a user job with a delay when the board catalogue is pending", async () => {
-    const board = "so_ill";
+  it("enqueues a catalogue job for the waiting board and does not re-enqueue the user job when catalogue is pending", async () => {
+    const board = "decoy";
     const userId = await seedConnection(board, "tok-pending", "2026-06-01T00:00:00.000Z");
 
     const sent: SyncJob[] = [];
@@ -151,7 +156,78 @@ describe("queue consumer routing", () => {
 
     expect(msg.acked).toBe(true);
     expect(msg.retried).toBe(false);
-    expect(sentJobs).toEqual([{ body: { kind: "user", userId }, options: { delaySeconds: 60 } }]);
+    expect(sentJobs).toEqual([{ body: { kind: "catalogue", board }, options: undefined }]);
+  });
+
+  it("fans out user jobs for a board's active connections when a catalogue job completes its initial fill", async () => {
+    const board = "aurora";
+    const userA = await seedConnection(board, "tok-a", "2026-06-01T00:00:00.000Z");
+    const userB = await seedConnection(board, "tok-b", "2026-06-02T00:00:00.000Z");
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () =>
+          jsonResponse(200, {
+            climbs: [{ uuid: "c1", name: "Jug Life" }],
+            climb_stats: [{ climb_uuid: "c1", angle: 40, difficulty_average: 20.0 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+            ],
+            _complete: true,
+          }),
+      },
+    ]);
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const sent: SyncJob[] = [];
+    const sentJobs: SentJob[] = [];
+    const msg = message({ kind: "catalogue", board });
+    await worker.queue({ messages: [msg] } as never, envWithQueue(sent, sentJobs));
+
+    expect(msg.acked).toBe(true);
+    const userJobs = sentJobs.filter((j) => j.body.kind === "user");
+    expect(userJobs).toHaveLength(2);
+    expect(userJobs.map((j) => j.body)).toEqual(
+      expect.arrayContaining([
+        { kind: "user", userId: userA, board },
+        { kind: "user", userId: userB, board },
+      ])
+    );
+  });
+
+  it("does not fan out user jobs after a routine daily catalogue refresh", async () => {
+    const board = "touchstone";
+    await seedConnection(board, "tok-refresh", "2026-06-01T00:00:00.000Z");
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
+    )
+      .bind(board)
+      .run();
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () =>
+          jsonResponse(200, {
+            climbs: [{ uuid: "c1", name: "Jug Life" }],
+            climb_stats: [{ climb_uuid: "c1", angle: 40, difficulty_average: 20.0 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+            ],
+            _complete: true,
+          }),
+      },
+    ]);
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const sent: SyncJob[] = [];
+    const sentJobs: SentJob[] = [];
+    const msg = message({ kind: "catalogue", board });
+    await worker.queue({ messages: [msg] } as never, envWithQueue(sent, sentJobs));
+
+    expect(msg.acked).toBe(true);
+    expect(sentJobs).toHaveLength(0);
   });
 });
 
