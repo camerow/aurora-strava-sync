@@ -148,6 +148,26 @@ export async function activeBoardConnectionsForBoard(
     .all();
 }
 
+export async function autoSyncBoardConnectionsForBoard(
+  db: D1Database,
+  board: string
+): Promise<BoardConnectionRow[]> {
+  const rows = await drizzle(db)
+    .select({ conn: boardConnections })
+    .from(boardConnections)
+    .innerJoin(users, eq(users.id, boardConnections.user_id))
+    .where(
+      and(
+        eq(boardConnections.board, board),
+        eq(boardConnections.status, "active"),
+        eq(users.auto_sync, 1)
+      )
+    )
+    .orderBy(desc(boardConnections.connected_at))
+    .all();
+  return rows.map((r) => r.conn);
+}
+
 export async function boardsWithActiveConnections(db: D1Database): Promise<string[]> {
   const rows = await drizzle(db)
     .selectDistinct({ board: boardConnections.board })

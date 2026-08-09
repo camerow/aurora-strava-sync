@@ -37,6 +37,8 @@ export type SyncOutcome = {
   pendingBoards?: string[];
 };
 
+const MISS_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+
 const STATUS_PRIORITY: SyncStatus[] = [
   "rate_limited",
   "catalogue_pending",
@@ -72,7 +74,7 @@ export async function syncOneUser(
 
   const status = STATUS_PRIORITY.find((s) => outcomes.some((o) => o.status === s)) ?? "synced";
   const posted = outcomes.reduce((a, o) => a + o.posted, 0);
-  if (status !== "rate_limited" && status !== "catalogue_pending") {
+  if (status !== "rate_limited") {
     const boardDead = outcomes.some((o) => o.status === "board_dead");
     const stravaDead = outcomes.some((o) => o.status === "strava_dead");
     await repo.recordSyncResult(
@@ -129,14 +131,30 @@ async function syncOneBoard(
   const missingName = referenced.some((uuid) => !known.has(uuid));
   const missingGrade = bids.some((b) => !knownGrades.has(`${b.climb_uuid}:${b.angle}`));
   if (missingName || missingGrade) {
-    try {
-      await refreshSharedCache(env, aurora, boardConn.board, boardToken, CACHE_REFRESH_PAGES);
-    } catch (err) {
-      if (err instanceof BoardTokenRejectedError) {
-        await repo.markBoardConnectionDead(env.DB, userId, boardConn.board);
-        return { status: "board_dead", posted: 0 };
+    const lastMissRefresh = await repo.getBoardCursor(
+      env.DB,
+      boardConn.board,
+      "last_miss_refresh_at"
+    );
+    const dueForMissRefresh =
+      lastMissRefresh === "" ||
+      Date.now() - Date.parse(lastMissRefresh) >= MISS_REFRESH_INTERVAL_MS;
+    if (dueForMissRefresh) {
+      try {
+        await refreshSharedCache(env, aurora, boardConn.board, boardToken, CACHE_REFRESH_PAGES);
+      } catch (err) {
+        if (err instanceof BoardTokenRejectedError) {
+          await repo.markBoardConnectionDead(env.DB, userId, boardConn.board);
+          return { status: "board_dead", posted: 0 };
+        }
+        throw err;
       }
-      throw err;
+      await repo.setBoardCursor(
+        env.DB,
+        boardConn.board,
+        "last_miss_refresh_at",
+        new Date().toISOString()
+      );
     }
   }
 

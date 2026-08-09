@@ -6,6 +6,7 @@ import * as repo from "./lib/repo";
 export const CACHE_FILL_PAGES = 12;
 export const CACHE_DAILY_PAGES = 24;
 export const CACHE_REFRESH_PAGES = 4;
+export const CATALOGUE_ENQUEUE_DEBOUNCE_MS = 5 * 60 * 1000;
 
 export type CatalogueOutcome = {
   status: "complete" | "continuing" | "no_credentials" | "unknown_board";
@@ -43,13 +44,21 @@ async function fillTable(
   await repo.setBoardCursor(env.DB, board, doneKey, "1");
 }
 
+export type SharedCacheRefreshResult = {
+  complete: boolean;
+  statsCursor: string;
+  climbsCursor: string;
+  priorStatsCursor: string;
+  priorClimbsCursor: string;
+};
+
 export async function refreshSharedCache(
   env: Env,
   aurora: AuroraClient,
   board: string,
   token: string,
   maxPages: number
-): Promise<boolean> {
+): Promise<SharedCacheRefreshResult> {
   const statsSince = await repo.getBoardCursor(env.DB, board, "climb_stats");
   const climbsSince = await repo.getBoardCursor(env.DB, board, "climbs");
   const result = await aurora.syncShared(
@@ -63,7 +72,13 @@ export async function refreshSharedCache(
   );
   await repo.setBoardCursor(env.DB, board, "climb_stats", result.statsCursor);
   await repo.setBoardCursor(env.DB, board, "climbs", result.climbsCursor);
-  return result.complete;
+  return {
+    complete: result.complete,
+    statsCursor: result.statsCursor,
+    climbsCursor: result.climbsCursor,
+    priorStatsCursor: statsSince,
+    priorClimbsCursor: climbsSince,
+  };
 }
 
 async function runCatalogue(
@@ -83,8 +98,22 @@ async function runCatalogue(
     await repo.setBoardCursor(env.DB, board, "cache_complete", "1");
     return { status: "complete", initialFill: true };
   }
-  const complete = await refreshSharedCache(env, aurora, board, token, CACHE_DAILY_PAGES);
-  return complete ? { status: "complete" } : { status: "continuing" };
+  const result = await refreshSharedCache(env, aurora, board, token, CACHE_DAILY_PAGES);
+  if (result.complete) return { status: "complete" };
+  if (
+    result.statsCursor === result.priorStatsCursor &&
+    result.climbsCursor === result.priorClimbsCursor
+  ) {
+    throw new Error(`board cache refresh for ${board} made no progress`);
+  }
+  return { status: "continuing" };
+}
+
+export async function shouldEnqueueCatalogueJob(env: Env, board: string): Promise<boolean> {
+  const last = await repo.getBoardCursor(env.DB, board, "catalogue_enqueued_at");
+  if (last !== "" && Date.now() - Date.parse(last) < CATALOGUE_ENQUEUE_DEBOUNCE_MS) return false;
+  await repo.setBoardCursor(env.DB, board, "catalogue_enqueued_at", new Date().toISOString());
+  return true;
 }
 
 export async function syncBoardCatalogue(
