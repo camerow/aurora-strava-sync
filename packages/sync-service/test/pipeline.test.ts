@@ -102,6 +102,39 @@ function auroraRoutes(): FakeRoute[] {
   ];
 }
 
+function auroraTime(d: Date): string {
+  const iso = d.toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 19)}.000000`;
+}
+
+function auroraRoutesAt(minutesAgo: number): FakeRoute[] {
+  const climbedAt = auroraTime(new Date(Date.now() - minutesAgo * 60_000));
+  const [ascentsRoute, sharedRoute] = auroraRoutes() as [FakeRoute, FakeRoute];
+  return [
+    {
+      match: ascentsRoute.match,
+      respond: () =>
+        jsonResponse(200, {
+          ascents: [
+            {
+              uuid: "a1",
+              climb_uuid: "c1",
+              angle: 40,
+              user_id: 42,
+              bid_count: 1,
+              difficulty: 18,
+              climbed_at: climbedAt,
+            },
+          ],
+          bids: [],
+          user_syncs: [],
+          _complete: true,
+        }),
+    },
+    sharedRoute,
+  ];
+}
+
 function stravaCreateRoute(status: number, id: number): FakeRoute {
   return {
     match: (url, method) => url.endsWith("/api/v3/activities") && method === "POST",
@@ -357,5 +390,45 @@ describe("syncOneUser", () => {
     const outcome = await syncOneUser(env, userId, fetchImpl);
     expect(outcome).toEqual({ status: "synced", posted: 0 });
     expect(stravaCreateCalls(calls)).toHaveLength(0);
+  });
+
+  it("persists a session still inside the in-progress window without posting it", async () => {
+    await seedUser(userId, 51, 21);
+    const { fetchImpl, calls } = makeFakeFetch([
+      ...auroraRoutesAt(10),
+      stravaCreateRoute(201, 3001),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome).toEqual({ status: "synced", posted: 0 });
+
+    const rows = await env.DB.prepare(
+      `SELECT climb_count, strava_activity_id FROM sessions WHERE user_id = ?`
+    )
+      .bind(userId)
+      .all<{ climb_count: number; strava_activity_id: number | null }>();
+    expect(rows.results).toHaveLength(1);
+    expect(rows.results[0]!.climb_count).toBe(1);
+    expect(rows.results[0]!.strava_activity_id).toBeNull();
+    expect(stravaCreateCalls(calls)).toHaveLength(0);
+  });
+
+  it("posts a session once it falls outside the in-progress window", async () => {
+    await seedUser(userId, 52, 22);
+    const { fetchImpl, calls } = makeFakeFetch([
+      ...auroraRoutesAt(180),
+      stravaCreateRoute(201, 3002),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome).toEqual({ status: "synced", posted: 1 });
+    expect(stravaCreateCalls(calls)).toHaveLength(1);
+
+    const row = await env.DB.prepare(`SELECT strava_activity_id FROM sessions WHERE user_id = ?`)
+      .bind(userId)
+      .first<{ strava_activity_id: number | null }>();
+    expect(row?.strava_activity_id).toBe(3002);
   });
 });
