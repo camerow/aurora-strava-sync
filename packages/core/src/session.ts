@@ -13,6 +13,7 @@ export type Session = {
   start: Date;
   end: Date;
   climbs: Climb[];
+  inProgress: boolean;
 };
 
 export type SessionConfig = {
@@ -33,6 +34,10 @@ export function defaultSessionConfig(): SessionConfig {
   };
 }
 
+export function isInProgress(end: Date, cfg: SessionConfig, now: Date): boolean {
+  return now.getTime() - (end.getTime() - cfg.cooldownBufferMs) < cfg.inProgressWindowMs;
+}
+
 export function buildSessions(climbs: Climb[], cfg: SessionConfig, now: Date): Session[] {
   if (climbs.length === 0) return [];
   const sorted = [...climbs].sort((a, b) => a.time.getTime() - b.time.getTime());
@@ -41,11 +46,12 @@ export function buildSessions(climbs: Climb[], cfg: SessionConfig, now: Date): S
   let group: Climb[] = [sorted[0]!];
   const flush = (): void => {
     const last = group[group.length - 1]!;
-    if (now.getTime() - last.time.getTime() < cfg.inProgressWindowMs) return;
+    const end = new Date(last.time.getTime() + cfg.cooldownBufferMs);
     sessions.push({
       start: new Date(group[0]!.time.getTime() - cfg.warmupBufferMs),
-      end: new Date(last.time.getTime() + cfg.cooldownBufferMs),
+      end,
       climbs: group,
+      inProgress: isInProgress(end, cfg, now),
     });
   };
   for (const c of sorted.slice(1)) {
