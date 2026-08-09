@@ -25,7 +25,7 @@ import { parseAuroraTime, wallClockNow } from "./lib/time";
 export type SyncStatus =
   | "synced"
   | "no_strava"
-  | "cache_filling"
+  | "catalogue_pending"
   | "rate_limited"
   | "board_dead"
   | "strava_dead"
@@ -38,7 +38,7 @@ export type SyncOutcome = {
 
 const STATUS_PRIORITY: SyncStatus[] = [
   "rate_limited",
-  "cache_filling",
+  "catalogue_pending",
   "strava_dead",
   "board_dead",
   "synced",
@@ -71,7 +71,7 @@ export async function syncOneUser(
 
   const status = STATUS_PRIORITY.find((s) => outcomes.some((o) => o.status === s)) ?? "synced";
   const posted = outcomes.reduce((a, o) => a + o.posted, 0);
-  if (status !== "rate_limited" && status !== "cache_filling") {
+  if (status !== "rate_limited" && status !== "catalogue_pending") {
     const boardDead = outcomes.some((o) => o.status === "board_dead");
     const stravaDead = outcomes.some((o) => o.status === "strava_dead");
     await repo.recordSyncResult(
@@ -92,6 +92,10 @@ async function syncOneBoard(
 ): Promise<SyncOutcome> {
   const userId = user.id;
   if (boardConn.status !== "active") return { status: "board_dead", posted: 0 };
+
+  if ((await repo.getBoardCursor(env.DB, boardConn.board, "cache_complete")) !== "1") {
+    return { status: "catalogue_pending", posted: 0 };
+  }
 
   const baseUrl = baseUrlFor(boardConn.board);
   if (baseUrl === undefined) throw new Error(`unknown board ${boardConn.board}`);

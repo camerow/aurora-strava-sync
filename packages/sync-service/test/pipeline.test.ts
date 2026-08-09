@@ -5,6 +5,7 @@ import { syncOneUser } from "../src/pipeline";
 import { jsonResponse, makeFakeFetch, type FakeRoute, type RecordedCall } from "./fakes";
 
 const FAR_FUTURE = 4102444800;
+const UNSEEDED_CATALOGUE_BOARD = "grasshopper";
 
 async function seedUser(
   userId: string,
@@ -39,6 +40,21 @@ async function seedUser(
       FAR_FUTURE,
       new Date().toISOString()
     )
+    .run();
+  if (board !== UNSEEDED_CATALOGUE_BOARD) {
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
+    )
+      .bind(board)
+      .run();
+  }
+}
+
+async function markCatalogueComplete(board: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
+  )
+    .bind(board)
     .run();
 }
 
@@ -291,6 +307,7 @@ describe("syncOneUser", () => {
     )
       .bind(userId, await encryptSecret("board-token", env.TOKEN_KEY), new Date().toISOString())
       .run();
+    await markCatalogueComplete("tension");
     const { fetchImpl, calls } = makeFakeFetch(auroraRoutes());
 
     const outcome = await syncOneUser(env, userId, fetchImpl);
@@ -335,6 +352,7 @@ describe("syncOneUser", () => {
     )
       .bind(userId, await encryptSecret("board-token-2", env.TOKEN_KEY), new Date().toISOString())
       .run();
+    await markCatalogueComplete("kilter");
     const { fetchImpl, calls } = makeFakeFetch([
       ...auroraRoutes(),
       stravaCreateRoute(201, 5005),
@@ -362,6 +380,7 @@ describe("syncOneUser", () => {
     )
       .bind(userId, await encryptSecret("board-token-2", env.TOKEN_KEY), new Date().toISOString())
       .run();
+    await markCatalogueComplete("kilter");
     const { fetchImpl } = makeFakeFetch([
       ...auroraRoutes(),
       stravaCreateRoute(201, 6006),
@@ -503,5 +522,19 @@ describe("syncOneUser", () => {
       .bind(userId)
       .first<{ summary: string }>();
     expect(row?.summary).toContain("Jug Life");
+  });
+
+  it("defers and persists nothing when the board catalogue has never completed", async () => {
+    await seedUser(userId, 61, 31, "grasshopper");
+    const { fetchImpl, calls } = makeFakeFetch([...auroraRoutes(), stravaCreateRoute(201, 4001)]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome).toEqual({ status: "catalogue_pending", posted: 0 });
+
+    const rows = await env.DB.prepare(`SELECT fingerprint FROM sessions WHERE user_id = ?`)
+      .bind(userId)
+      .all();
+    expect(rows.results).toHaveLength(0);
+    expect(calls).toHaveLength(0);
   });
 });

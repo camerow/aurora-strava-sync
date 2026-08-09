@@ -82,6 +82,9 @@ export default {
       );
       if (outcome.status === "rate_limited") {
         msg.retry({ delaySeconds: RATE_LIMIT_RETRY_SECONDS });
+      } else if (outcome.status === "catalogue_pending") {
+        await env.SYNC_QUEUE.send(job);
+        msg.ack();
       } else {
         msg.ack();
       }
