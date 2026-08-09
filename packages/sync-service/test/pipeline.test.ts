@@ -135,6 +135,48 @@ function auroraRoutesAt(minutesAgo: number): FakeRoute[] {
   ];
 }
 
+function auroraRoutesAtTwo(
+  oldMinutesAgo: number,
+  recentMinutesAgo: number,
+  recentDifficulty = 30
+): FakeRoute[] {
+  const oldAt = auroraTime(new Date(Date.now() - oldMinutesAgo * 60_000));
+  const recentAt = auroraTime(new Date(Date.now() - recentMinutesAgo * 60_000));
+  const [ascentsRoute, sharedRoute] = auroraRoutes() as [FakeRoute, FakeRoute];
+  return [
+    {
+      match: ascentsRoute.match,
+      respond: () =>
+        jsonResponse(200, {
+          ascents: [
+            {
+              uuid: "a1",
+              climb_uuid: "c1",
+              angle: 40,
+              user_id: 42,
+              bid_count: 1,
+              difficulty: 18,
+              climbed_at: oldAt,
+            },
+            {
+              uuid: "a2",
+              climb_uuid: "c2",
+              angle: 40,
+              user_id: 42,
+              bid_count: 1,
+              difficulty: recentDifficulty,
+              climbed_at: recentAt,
+            },
+          ],
+          bids: [],
+          user_syncs: [],
+          _complete: true,
+        }),
+    },
+    sharedRoute,
+  ];
+}
+
 function stravaCreateRoute(status: number, id: number): FakeRoute {
   return {
     match: (url, method) => url.endsWith("/api/v3/activities") && method === "POST",
@@ -430,5 +472,40 @@ describe("syncOneUser", () => {
       .bind(userId)
       .first<{ strava_activity_id: number | null }>();
     expect(row?.strava_activity_id).toBe(3002);
+  });
+
+  it("keeps a completed session's score unaffected by an in-progress session in the same sync", async () => {
+    const baselineUserId = userId;
+    await seedUser(baselineUserId, 60, 30);
+    const baseline = makeFakeFetch([
+      ...auroraRoutesAt(300),
+      stravaCreateRoute(201, 9001),
+      stravaPatchRoute,
+    ]);
+    const baselineOutcome = await syncOneUser(env, baselineUserId, baseline.fetchImpl);
+    expect(baselineOutcome).toEqual({ status: "synced", posted: 1 });
+
+    const baselineRow = await env.DB.prepare(`SELECT rpe, title FROM sessions WHERE user_id = ?`)
+      .bind(baselineUserId)
+      .first<{ rpe: number; title: string }>();
+    expect(baselineRow).not.toBeNull();
+
+    const mixedUserId = `${userId}_mixed`;
+    await seedUser(mixedUserId, 61, 31);
+    const mixed = makeFakeFetch([
+      ...auroraRoutesAtTwo(300, 10),
+      stravaCreateRoute(201, 9002),
+      stravaPatchRoute,
+    ]);
+    const mixedOutcome = await syncOneUser(env, mixedUserId, mixed.fetchImpl);
+    expect(mixedOutcome).toEqual({ status: "synced", posted: 1 });
+
+    const mixedRows = await env.DB.prepare(
+      `SELECT rpe, title FROM sessions WHERE user_id = ? ORDER BY start_at ASC`
+    )
+      .bind(mixedUserId)
+      .all<{ rpe: number; title: string }>();
+    expect(mixedRows.results).toHaveLength(2);
+    expect(mixedRows.results[0]).toEqual(baselineRow);
   });
 });
