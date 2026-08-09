@@ -13,6 +13,7 @@ const detail: SessionDetail = {
   title: "Solid climbing session · 4 climbs, top V7",
   strava_activity_id: 555,
   posted_at: "2026-07-02T00:00:00.000Z",
+  inProgress: false,
   climbs: [
     {
       time: "2026-07-01T18:00:00.000Z",

@@ -12,6 +12,7 @@ function durationLabel(startAt: string, endAt: string): string {
 }
 
 const BADGES: Record<SessionBadge, { color: string; border: string }> = {
+  in_progress: { color: colors.watermelonInk, border: "rgba(196,48,61,0.4)" },
   on_strava: { color: colors.azureInk, border: "rgba(27,98,206,0.4)" },
   will_post: { color: "rgba(64,63,76,0.6)", border: "rgba(64,63,76,0.25)" },
   not_posted: { color: colors.textFaint, border: "rgba(64,63,76,0.18)" },
