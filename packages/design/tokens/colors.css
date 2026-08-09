@@ -20,6 +20,7 @@
   /* Surfaces */
   --surface-page: var(--bs-gunmetal);
   --surface-card: var(--bs-white);
+  --surface-soft: #f7f6f3;
   --surface-panel: var(--bs-gunmetal);
   --surface-accent-pink: var(--bs-petal);
   --surface-accent-gold: var(--bs-gold);
