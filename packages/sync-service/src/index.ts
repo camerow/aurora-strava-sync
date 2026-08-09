@@ -3,12 +3,13 @@ import { createApp } from "./app";
 import { verifyClerkUser } from "./auth";
 import type { Env, SyncJob } from "./bindings";
 import { syncBoardCatalogue } from "./catalogue";
-import { setBoardCursor, usersDueForSync } from "./lib/repo";
+import { boardsWithActiveConnections, setBoardCursor, usersDueForSync } from "./lib/repo";
 import { syncOneUser } from "./pipeline";
 
 const SYNC_INTERVAL_MS = 23 * 60 * 60 * 1000;
 const RATE_LIMIT_RETRY_SECONDS = 15 * 60;
 const CATALOGUE_PENDING_RETRY_SECONDS = 60;
+const CATALOGUE_CRON = "0 4 * * *";
 
 const queuedJobSchema = z.union([
   z.object({ kind: z.literal("catalogue"), board: z.string() }),
@@ -23,8 +24,18 @@ const app = createApp({ verifyUser: verifyClerkUser });
 export default {
   fetch: app.fetch,
 
-  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     await setBoardCursor(env.DB, "_meta", "cron_heartbeat", new Date().toISOString());
+
+    if (controller.cron === CATALOGUE_CRON) {
+      const boards = await boardsWithActiveConnections(env.DB);
+      if (boards.length === 0) return;
+      await env.SYNC_QUEUE.sendBatch(
+        boards.map((board) => ({ body: { kind: "catalogue" as const, board } }))
+      );
+      return;
+    }
+
     const due = await usersDueForSync(env.DB, SYNC_INTERVAL_MS);
     if (due.length === 0) return;
     await env.SYNC_QUEUE.sendBatch(

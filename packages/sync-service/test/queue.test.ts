@@ -154,3 +154,49 @@ describe("queue consumer routing", () => {
     expect(sentJobs).toEqual([{ body: { kind: "user", userId }, options: { delaySeconds: 60 } }]);
   });
 });
+
+describe("scheduled fan-out", () => {
+  it("enqueues catalogue jobs on the daily cron, one per board with active connections", async () => {
+    const userId = `cron_user_${Date.now()}`;
+    await env.DB.prepare(
+      `INSERT INTO users (id, timezone, created_at, auto_sync) VALUES (?, 'UTC', ?, 0)`
+    )
+      .bind(userId, new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at, posting_enabled, post_since)
+       VALUES (?, 'touchstone', 1, 'ct', 'active', NULL, ?, 0, NULL)`
+    )
+      .bind(userId, new Date().toISOString())
+      .run();
+
+    const sent: SyncJob[] = [];
+    const fakeEnv = {
+      ...env,
+      SYNC_QUEUE: {
+        send: async (b: SyncJob) => void sent.push(b),
+        sendBatch: async (bs: { body: SyncJob }[]) => void sent.push(...bs.map((b) => b.body)),
+      },
+    } as unknown as Env;
+
+    await worker.scheduled({ cron: "0 4 * * *" } as never, fakeEnv);
+
+    expect(sent).toContainEqual({ kind: "catalogue", board: "touchstone" });
+    expect(sent.every((j) => j.kind === "catalogue")).toBe(true);
+  });
+
+  it("enqueues no catalogue jobs on the hourly cron", async () => {
+    const sent: SyncJob[] = [];
+    const fakeEnv = {
+      ...env,
+      SYNC_QUEUE: {
+        send: async (b: SyncJob) => void sent.push(b),
+        sendBatch: async (bs: { body: SyncJob }[]) => void sent.push(...bs.map((b) => b.body)),
+      },
+    } as unknown as Env;
+
+    await worker.scheduled({ cron: "0 * * * *" } as never, fakeEnv);
+
+    expect(sent.some((j) => j.kind === "catalogue")).toBe(false);
+  });
+});
