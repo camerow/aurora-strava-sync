@@ -125,6 +125,7 @@ export function SettingsView({
               key={b.board}
               board={b}
               stravaActive={vm.stravaActive}
+              stravaConnected={vm.stravaConnected}
               postingBusy={postingBusy}
               message={messageBoard === b.board ? message : null}
               onSync={() => onSync(b.board)}
@@ -172,14 +173,26 @@ export function SettingsView({
             <span style={{ fontWeight: 600, fontSize: 13 }}>Strava</span>
             <span style={monoMuted}>{vm.stravaStatusLabel}</span>
           </span>
-          <Link to="/app/setup" style={linkAction}>
-            {vm.stravaConnected ? "Re-link" : "Connect"}
-          </Link>
+          {vm.stravaConnected && (
+            <Link to="/app/setup" style={linkAction}>
+              Re-link
+            </Link>
+          )}
         </div>
-        {!vm.stravaActive && (
+        {!vm.stravaConnected && (
+          <>
+            <p style={bodyText}>
+              Connect Strava and choose per board which sessions post to your feed as Rock Climbing
+              activities.
+            </p>
+            <Link to="/app/setup" style={{ ...azureButton, textDecoration: "none" }}>
+              Connect Strava
+            </Link>
+          </>
+        )}
+        {vm.stravaConnected && !vm.stravaActive && (
           <p style={bodyText}>
-            Connect Strava and choose per board which sessions post to your feed as Rock Climbing
-            activities.
+            Strava access has lapsed. Re-link it to start posting your sessions again.
           </p>
         )}
       </Section>

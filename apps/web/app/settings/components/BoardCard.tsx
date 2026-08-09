@@ -15,6 +15,7 @@ import {
 export type BoardCardProps = {
   board: BoardCardVM;
   stravaActive: boolean;
+  stravaConnected: boolean;
   postingBusy: boolean;
   message: string | null;
   onSync: () => void;
@@ -24,6 +25,7 @@ export type BoardCardProps = {
 export function BoardCard({
   board,
   stravaActive,
+  stravaConnected,
   postingBusy,
   message,
   onSync,
@@ -90,7 +92,9 @@ export function BoardCard({
           </div>
         ) : (
           <p style={bodyText}>
-            Connect Strava below to post this board&rsquo;s sessions to your feed.
+            {stravaConnected
+              ? "Re-link Strava below to resume posting this board’s sessions."
+              : "Connect Strava below to post this board’s sessions to your feed."}
           </p>
         ))}
 

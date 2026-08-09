@@ -19,6 +19,7 @@ import {
 export type BoardCardProps = {
   board: BoardCardVM;
   stravaActive: boolean;
+  stravaConnected: boolean;
   postingBusy: boolean;
   message: string | null;
   onSync: () => void;
@@ -28,6 +29,7 @@ export type BoardCardProps = {
 export function BoardCard({
   board,
   stravaActive,
+  stravaConnected,
   postingBusy,
   message,
   onSync,
@@ -90,7 +92,9 @@ export function BoardCard({
           </View>
         ) : (
           <Text style={bodyText}>
-            Connect Strava on the web at sendtally.com to post this board’s sessions.
+            {stravaConnected
+              ? "Strava access has lapsed. Re-link it on the web at sendtally.com to resume posting this board’s sessions."
+              : "Connect Strava on the web at sendtally.com to post this board’s sessions."}
           </Text>
         ))}
 

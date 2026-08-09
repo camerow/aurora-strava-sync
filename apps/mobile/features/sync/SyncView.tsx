@@ -123,6 +123,7 @@ export function SyncView({
                 key={b.board}
                 board={b}
                 stravaActive={vm.stravaActive}
+                stravaConnected={vm.stravaConnected}
                 postingBusy={postingBusy}
                 message={messageBoard === b.board ? message : null}
                 onSync={() => onSync(b.board)}
@@ -142,7 +143,9 @@ export function SyncView({
           <Text style={bodyText}>
             {vm.stravaActive
               ? "Choose per board above which sessions post to your Strava feed."
-              : "Connect Strava on the web at sendtally.com, then choose per board what gets posted."}
+              : vm.stravaConnected
+                ? "Strava access has lapsed. Re-link it on the web at sendtally.com to start posting again."
+                : "Connect Strava on the web at sendtally.com, then choose per board what gets posted."}
           </Text>
         </View>
 

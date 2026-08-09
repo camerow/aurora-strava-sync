@@ -123,6 +123,6 @@ describe("syncSettingsVM", () => {
       null
     );
     expect(vm.lastSyncLabel.startsWith("LAST SYNC ")).toBe(true);
-    expect(vm.lastSyncLabel).toBe(vm.lastSyncLabel.toUpperCase());
+    expect(vm.lastSyncLabel).toMatch(/^LAST SYNC [A-Z0-9 ,:]+$/);
   });
 });
