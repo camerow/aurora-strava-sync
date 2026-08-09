@@ -34,6 +34,7 @@ export type SyncStatus =
 export type SyncOutcome = {
   status: SyncStatus;
   posted: number;
+  pendingBoards?: string[];
 };
 
 const STATUS_PRIORITY: SyncStatus[] = [
@@ -80,6 +81,10 @@ export async function syncOneUser(
       stravaDead ? "strava token rejected" : boardDead ? "board token rejected" : null
     );
   }
+  if (status === "catalogue_pending") {
+    const pendingBoards = [...new Set(outcomes.flatMap((o) => o.pendingBoards ?? []))];
+    return { status, posted, pendingBoards };
+  }
   return { status, posted };
 }
 
@@ -94,7 +99,7 @@ async function syncOneBoard(
   if (boardConn.status !== "active") return { status: "board_dead", posted: 0 };
 
   if ((await repo.getBoardCursor(env.DB, boardConn.board, "cache_complete")) !== "1") {
-    return { status: "catalogue_pending", posted: 0 };
+    return { status: "catalogue_pending", posted: 0, pendingBoards: [boardConn.board] };
   }
 
   const baseUrl = baseUrlFor(boardConn.board);
@@ -116,7 +121,14 @@ async function syncOneBoard(
 
   const referenced = [...ascents.map((a) => a.climb_uuid), ...bids.map((b) => b.climb_uuid)];
   const known = await repo.climbNamesFor(env.DB, boardConn.board, referenced);
-  if (referenced.some((uuid) => !known.has(uuid))) {
+  const knownGrades = await repo.climbVGradesFor(
+    env.DB,
+    boardConn.board,
+    bids.map((b) => b.climb_uuid)
+  );
+  const missingName = referenced.some((uuid) => !known.has(uuid));
+  const missingGrade = bids.some((b) => !knownGrades.has(`${b.climb_uuid}:${b.angle}`));
+  if (missingName || missingGrade) {
     try {
       await refreshSharedCache(env, aurora, boardConn.board, boardToken, CACHE_REFRESH_PAGES);
     } catch (err) {

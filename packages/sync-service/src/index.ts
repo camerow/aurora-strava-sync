@@ -3,12 +3,16 @@ import { createApp } from "./app";
 import { verifyClerkUser } from "./auth";
 import type { Env, SyncJob } from "./bindings";
 import { syncBoardCatalogue } from "./catalogue";
-import { boardsWithActiveConnections, setBoardCursor, usersDueForSync } from "./lib/repo";
+import {
+  activeBoardConnectionsForBoard,
+  boardsWithActiveConnections,
+  setBoardCursor,
+  usersDueForSync,
+} from "./lib/repo";
 import { syncOneUser } from "./pipeline";
 
 const SYNC_INTERVAL_MS = 23 * 60 * 60 * 1000;
 const RATE_LIMIT_RETRY_SECONDS = 15 * 60;
-const CATALOGUE_PENDING_RETRY_SECONDS = 60;
 const CATALOGUE_CRON = "0 4 * * *";
 
 const queuedJobSchema = z.union([
@@ -67,6 +71,12 @@ export default {
           `${new Date().toISOString()} ${job.board} ${outcome.status}`
         );
         if (outcome.status === "continuing") await env.SYNC_QUEUE.send(job);
+        if (outcome.status === "complete" && outcome.initialFill === true) {
+          const waiting = await activeBoardConnectionsForBoard(env.DB, job.board);
+          for (const conn of waiting) {
+            await env.SYNC_QUEUE.send({ kind: "user", userId: conn.user_id, board: job.board });
+          }
+        }
         msg.ack();
         continue;
       }
@@ -95,7 +105,9 @@ export default {
       if (outcome.status === "rate_limited") {
         msg.retry({ delaySeconds: RATE_LIMIT_RETRY_SECONDS });
       } else if (outcome.status === "catalogue_pending") {
-        await env.SYNC_QUEUE.send(job, { delaySeconds: CATALOGUE_PENDING_RETRY_SECONDS });
+        for (const board of outcome.pendingBoards ?? []) {
+          await env.SYNC_QUEUE.send({ kind: "catalogue", board });
+        }
         msg.ack();
       } else {
         msg.ack();

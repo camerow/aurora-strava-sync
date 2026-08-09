@@ -9,6 +9,7 @@ export const CACHE_REFRESH_PAGES = 4;
 
 export type CatalogueOutcome = {
   status: "complete" | "continuing" | "no_credentials" | "unknown_board";
+  initialFill?: boolean;
 };
 
 class FillIncompleteError extends Error {}
@@ -48,7 +49,7 @@ export async function refreshSharedCache(
   board: string,
   token: string,
   maxPages: number
-): Promise<void> {
+): Promise<boolean> {
   const statsSince = await repo.getBoardCursor(env.DB, board, "climb_stats");
   const climbsSince = await repo.getBoardCursor(env.DB, board, "climbs");
   const result = await aurora.syncShared(
@@ -62,6 +63,7 @@ export async function refreshSharedCache(
   );
   await repo.setBoardCursor(env.DB, board, "climb_stats", result.statsCursor);
   await repo.setBoardCursor(env.DB, board, "climbs", result.climbsCursor);
+  return result.complete;
 }
 
 async function runCatalogue(
@@ -79,10 +81,10 @@ async function runCatalogue(
       throw err;
     }
     await repo.setBoardCursor(env.DB, board, "cache_complete", "1");
-    return { status: "complete" };
+    return { status: "complete", initialFill: true };
   }
-  await refreshSharedCache(env, aurora, board, token, CACHE_DAILY_PAGES);
-  return { status: "complete" };
+  const complete = await refreshSharedCache(env, aurora, board, token, CACHE_DAILY_PAGES);
+  return complete ? { status: "complete" } : { status: "continuing" };
 }
 
 export async function syncBoardCatalogue(
