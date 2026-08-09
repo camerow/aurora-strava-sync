@@ -569,6 +569,42 @@ describe("syncOneUser", () => {
     expect(row?.summary).toContain("✗ V8 Mind Meld");
   });
 
+  it("does not re-trigger a refresh for an unresolvable climb on the next sync within the debounce window", async () => {
+    await seedUser(userId, 73, 43, "soill");
+    let sharedCalls = 0;
+    const { fetchImpl } = makeFakeFetch([
+      auroraRoutes()[0]!,
+      {
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
+        respond: () => {
+          sharedCalls++;
+          return jsonResponse(200, {
+            climbs: [
+              { uuid: "c1", name: "Jug Life" },
+              { uuid: "c2", name: "Crimp Reaper" },
+            ],
+            climb_stats: [],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-04 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-04 00:00:00.000000" },
+            ],
+            _complete: true,
+          });
+        },
+      },
+      stravaCreateRoute(201, 7003),
+      stravaPatchRoute,
+    ]);
+
+    const first = await syncOneUser(env, userId, fetchImpl);
+    expect(first.status).toBe("synced");
+    expect(sharedCalls).toBe(1);
+
+    const second = await syncOneUser(env, userId, fetchImpl);
+    expect(second.status).toBe("synced");
+    expect(sharedCalls).toBe(1);
+  });
+
   it("defers and persists nothing when the board catalogue has never completed", async () => {
     await seedUser(userId, 61, 31, DEFERRAL_TEST_BOARD, { catalogueComplete: false });
     const { fetchImpl, calls } = makeFakeFetch([...auroraRoutes(), stravaCreateRoute(201, 4001)]);
@@ -585,5 +621,13 @@ describe("syncOneUser", () => {
       .all();
     expect(rows.results).toHaveLength(0);
     expect(calls).toHaveLength(0);
+
+    const syncState = await env.DB.prepare(
+      `SELECT last_synced_at, last_error FROM sync_state WHERE user_id = ?`
+    )
+      .bind(userId)
+      .first<{ last_synced_at: string | null; last_error: string | null }>();
+    expect(syncState?.last_synced_at).not.toBeNull();
+    expect(syncState?.last_error).toBeNull();
   });
 });

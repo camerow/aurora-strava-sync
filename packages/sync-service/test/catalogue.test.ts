@@ -167,4 +167,43 @@ describe("syncBoardCatalogue", () => {
     const outcome = await syncBoardCatalogue(env, board, fetchImpl);
     expect(outcome).toEqual({ status: "continuing" });
   });
+
+  it("throws instead of looping forever when the daily refresh makes no progress", async () => {
+    const board = "aurora";
+    await seedConnection(board, "tok-live", "2026-06-01T00:00:00.000Z");
+    const stuckTimestamp = "2026-07-01 00:00:00.000000";
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'cache_complete', '1')`
+    )
+      .bind(board)
+      .run();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'climb_stats', ?)`
+    )
+      .bind(board, stuckTimestamp)
+      .run();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO board_cursors (board, table_name, value) VALUES (?, 'climbs', ?)`
+    )
+      .bind(board, stuckTimestamp)
+      .run();
+
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () =>
+          jsonResponse(200, {
+            climbs: [],
+            climb_stats: [],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: stuckTimestamp },
+              { table_name: "climbs", last_synchronized_at: stuckTimestamp },
+            ],
+            _complete: false,
+          }),
+      },
+    ]);
+
+    await expect(syncBoardCatalogue(env, board, fetchImpl)).rejects.toThrow("made no progress");
+  });
 });

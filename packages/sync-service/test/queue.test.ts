@@ -24,13 +24,20 @@ function message(body: unknown): Msg {
 
 type SentJob = { body: SyncJob; options?: { delaySeconds?: number } };
 
-function envWithQueue(sent: SyncJob[], sentJobs: SentJob[] = []): Env {
+function envWithQueue(sent: SyncJob[], sentJobs: SentJob[] = [], batchSizes: number[] = []): Env {
   return {
     ...env,
     SYNC_QUEUE: {
       send: async (b: SyncJob, options?: { delaySeconds?: number }) => {
         sent.push(b);
         sentJobs.push({ body: b, options });
+      },
+      sendBatch: async (batch: { body: SyncJob }[]) => {
+        batchSizes.push(batch.length);
+        for (const { body } of batch) {
+          sent.push(body);
+          sentJobs.push({ body });
+        }
       },
     },
   } as unknown as Env;
@@ -51,10 +58,17 @@ async function clearMetaBreadcrumbs(): Promise<void> {
   ).run();
 }
 
-async function seedConnection(board: string, token: string, connectedAt: string): Promise<string> {
+async function seedConnection(
+  board: string,
+  token: string,
+  connectedAt: string,
+  autoSync = true
+): Promise<string> {
   const userId = `queue_cat_user_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', ?)`)
-    .bind(userId, new Date().toISOString())
+  await env.DB.prepare(
+    `INSERT INTO users (id, timezone, created_at, auto_sync) VALUES (?, 'UTC', ?, ?)`
+  )
+    .bind(userId, new Date().toISOString(), autoSync ? 1 : 0)
     .run();
   await env.DB.prepare(
     `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at, posting_enabled, post_since)
@@ -159,6 +173,26 @@ describe("queue consumer routing", () => {
     expect(sentJobs).toEqual([{ body: { kind: "catalogue", board }, options: undefined }]);
   });
 
+  it("debounces catalogue enqueues from the deferral path within the debounce window", async () => {
+    const board = "decoy_debounce";
+    const userA = await seedConnection(board, "tok-a", "2026-06-01T00:00:00.000Z");
+    const userB = await seedConnection(board, "tok-b", "2026-06-02T00:00:00.000Z");
+
+    const sentA: SyncJob[] = [];
+    await worker.queue(
+      { messages: [message({ kind: "user", userId: userA })] } as never,
+      envWithQueue(sentA)
+    );
+    expect(sentA).toEqual([{ kind: "catalogue", board }]);
+
+    const sentB: SyncJob[] = [];
+    await worker.queue(
+      { messages: [message({ kind: "user", userId: userB })] } as never,
+      envWithQueue(sentB)
+    );
+    expect(sentB).toHaveLength(0);
+  });
+
   it("fans out user jobs for a board's active connections when a catalogue job completes its initial fill", async () => {
     const board = "aurora";
     const userA = await seedConnection(board, "tok-a", "2026-06-01T00:00:00.000Z");
@@ -195,6 +229,76 @@ describe("queue consumer routing", () => {
       ])
     );
   });
+
+  it("does not fan out to a connection whose user has auto-sync switched off", async () => {
+    const board = "kilter";
+    const autoUser = await seedConnection(board, "tok-auto", "2026-06-01T00:00:00.000Z", true);
+    const manualUser = await seedConnection(board, "tok-manual", "2026-06-02T00:00:00.000Z", false);
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () =>
+          jsonResponse(200, {
+            climbs: [{ uuid: "c1", name: "Jug Life" }],
+            climb_stats: [{ climb_uuid: "c1", angle: 40, difficulty_average: 20.0 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+            ],
+            _complete: true,
+          }),
+      },
+    ]);
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const sent: SyncJob[] = [];
+    const sentJobs: SentJob[] = [];
+    const msg = message({ kind: "catalogue", board });
+    await worker.queue({ messages: [msg] } as never, envWithQueue(sent, sentJobs));
+
+    expect(msg.acked).toBe(true);
+    const userJobs = sentJobs.filter((j) => j.body.kind === "user");
+    expect(userJobs.map((j) => j.body)).toEqual([{ kind: "user", userId: autoUser, board }]);
+    expect(userJobs.map((j) => j.body)).not.toEqual(
+      expect.arrayContaining([{ kind: "user", userId: manualUser, board }])
+    );
+  });
+
+  it("chunks a large fan-out into queue sendBatch calls of at most 100 messages", async () => {
+    const board = "tension";
+    const userIds: string[] = [];
+    for (let i = 0; i < 150; i++) {
+      userIds.push(await seedConnection(board, `tok-${i}`, "2026-06-01T00:00:00.000Z"));
+    }
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/sync"),
+        respond: () =>
+          jsonResponse(200, {
+            climbs: [{ uuid: "c1", name: "Jug Life" }],
+            climb_stats: [{ climb_uuid: "c1", angle: 40, difficulty_average: 20.0 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-08 00:00:00.000000" },
+            ],
+            _complete: true,
+          }),
+      },
+    ]);
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const sent: SyncJob[] = [];
+    const sentJobs: SentJob[] = [];
+    const batchSizes: number[] = [];
+    const msg = message({ kind: "catalogue", board });
+    await worker.queue({ messages: [msg] } as never, envWithQueue(sent, sentJobs, batchSizes));
+
+    expect(msg.acked).toBe(true);
+    const userJobs = sentJobs.filter((j) => j.body.kind === "user");
+    expect(userJobs).toHaveLength(150);
+    expect(batchSizes.length).toBeGreaterThan(1);
+    expect(batchSizes.every((n) => n <= 100)).toBe(true);
+  }, 30000);
 
   it("does not fan out user jobs after a routine daily catalogue refresh", async () => {
     const board = "touchstone";
