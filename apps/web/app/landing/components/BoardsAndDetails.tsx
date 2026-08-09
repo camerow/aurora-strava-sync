@@ -11,13 +11,16 @@ const BOARDS = [
 ];
 
 const DETAILS: Array<[string, string]> = [
-  ["ACTIVITY TYPE", "Rock Climbing, with elapsed time from your first to last logged climb"],
+  ["KEPT PER CLIMB", "Grade, angle, setter, burns, rest between attempts, and result"],
   [
-    "IN THE DESCRIPTION",
-    "A climb-by-climb log with grade, sends and attempts, plus your effort score",
+    "TRENDS",
+    "Volume, grade pyramid, hardest send, flash rate and average grade, weekly or all-time",
   ],
   ["BACKFILL", "Your whole board history on request, or leave the past alone"],
-  ["DUPLICATES", "Every posted session is fingerprinted - re-syncs never double up"],
+  [
+    "STRAVA",
+    "Optional. One Rock Climbing activity per session, fingerprinted so it never doubles up",
+  ],
   ["LEAVING", "Disconnect once and your credentials are deleted the same day"],
 ];
 
@@ -85,7 +88,7 @@ export function BoardsAndDetails(): React.ReactElement {
                 alignItems: "center",
                 gap: 14,
                 padding: "16px 18px",
-                background: "#F7F6F3",
+                background: "var(--surface-soft)",
               }}
             >
               <span style={{ flex: 1, fontWeight: 500, fontSize: 15 }}>{b}</span>
@@ -102,6 +105,17 @@ export function BoardsAndDetails(): React.ReactElement {
             </div>
           ))}
         </div>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 13,
+            lineHeight: 1.5,
+            color: "rgba(64,63,76,0.58)",
+          }}
+        >
+          Link as many as you climb on. Trends read across all of them at once, or one board at a
+          time.
+        </span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
         <SectionTitle>Details</SectionTitle>

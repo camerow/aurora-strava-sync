@@ -3,3 +3,45 @@
 @import "./tokens/typography.css";
 @import "./tokens/spacing.css";
 @import "./tokens/shape.css";
+
+.ds-statstrip {
+  display: grid;
+  grid-template-columns: repeat(var(--statstrip-cols, 4), minmax(0, 1fr));
+  border-top: 1px solid var(--line-on-light);
+  border-bottom: 1px solid var(--line-on-light);
+}
+
+.ds-statstrip-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 13px 18px;
+  border-right: 1px solid var(--line-on-light-soft);
+}
+
+.ds-statstrip-cell:last-child {
+  border-right: none;
+}
+
+@media (max-width: 560px) {
+  .ds-statstrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ds-statstrip-cell {
+    padding: 12px 14px;
+  }
+
+  .ds-statstrip-cell:nth-child(2n) {
+    border-right: none;
+  }
+
+  .ds-statstrip-cell:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    border-right: none;
+  }
+
+  .ds-statstrip-cell:not(:nth-last-child(-n + 2)) {
+    border-bottom: 1px solid var(--line-on-light-soft);
+  }
+}

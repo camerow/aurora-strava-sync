@@ -1,5 +1,5 @@
 import React from "react";
-import { Card } from "@sendtally/design";
+import { Card, Label } from "@sendtally/design";
 
 const STEPS: Array<[string, string, string]> = [
   [
@@ -9,57 +9,43 @@ const STEPS: Array<[string, string, string]> = [
   ],
   [
     "02",
-    "Authorise Strava",
-    "Standard OAuth, activity-write scope only. We never see your password and you can revoke it from Strava at any time.",
+    "Import your history",
+    "Every session you've ever logged comes across on day one, so the trends have something to say before your next climb.",
   ],
   [
     "03",
-    "Climb",
-    "Each logged session becomes one Rock Climbing activity. Titles, descriptions and privacy are yours to edit afterwards like any other activity.",
+    "Authorise Strava, if you want it",
+    "Standard OAuth, activity-write scope only. We never see your password and you can revoke it from Strava at any time.",
   ],
 ];
 
 export function HowItWorks(): React.ReactElement {
   return (
     <div id="how" className="l-how">
-      <div
-        style={{
-          maxWidth: 1440,
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 36,
-        }}
-      >
-        <div className="l-how-header">
-          <h2 className="l-section-title" style={{ color: "var(--text-on-light)" }}>
+      <div className="l-section-inner">
+        <div className="l-section-header">
+          <h2 className="l-section-title" style={{ color: "var(--bs-gunmetal)" }}>
             Two connections, once.
           </h2>
-          <span className="l-how-blurb">
+          <span className="l-section-blurb">
             After setup it runs on its own. Sessions show up within a few hours of you logging them
             in the board app.
           </span>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 20,
-          }}
-        >
+        <div className="l-card-grid">
           {STEPS.map(([n, title, body]) => (
-            <Card key={n} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 600,
-                  fontSize: 12,
-                  letterSpacing: "0.1em",
-                  color: "var(--text-label-accent)",
-                }}
-              >
+            <Card
+              key={n}
+              style={{
+                background: "var(--surface-soft)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
+              <Label on="accent" size={12} style={{ fontWeight: 600, letterSpacing: "0.1em" }}>
                 {n}
-              </span>
+              </Label>
               <span style={{ fontWeight: 600, fontSize: 19 }}>{title}</span>
               <span
                 style={{ fontSize: 14, lineHeight: 1.55, color: "var(--text-on-white-secondary)" }}
