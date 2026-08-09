@@ -8,6 +8,7 @@ import {
   type Session,
 } from "@sendtally/core";
 import type { Env } from "./bindings";
+import { CACHE_REFRESH_PAGES, refreshSharedCache } from "./catalogue";
 import {
   AuroraClient,
   baseUrlFor,
@@ -107,6 +108,20 @@ async function syncOneBoard(
       return { status: "board_dead", posted: 0 };
     }
     throw err;
+  }
+
+  const referenced = [...ascents.map((a) => a.climb_uuid), ...bids.map((b) => b.climb_uuid)];
+  const known = await repo.climbNamesFor(env.DB, boardConn.board, referenced);
+  if (referenced.some((uuid) => !known.has(uuid))) {
+    try {
+      await refreshSharedCache(env, aurora, boardConn.board, boardToken, CACHE_REFRESH_PAGES);
+    } catch (err) {
+      if (err instanceof BoardTokenRejectedError) {
+        await repo.markBoardConnectionDead(env.DB, userId, boardConn.board);
+        return { status: "board_dead", posted: 0 };
+      }
+      throw err;
+    }
   }
 
   const climbs = await toClimbs(env, boardConn.board, ascents, bids);

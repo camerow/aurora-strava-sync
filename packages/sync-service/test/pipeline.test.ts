@@ -466,4 +466,42 @@ describe("syncOneUser", () => {
     expect(mixedRows.results).toHaveLength(2);
     expect(mixedRows.results[0]).toEqual(baselineRow);
   });
+
+  it("refreshes the catalogue once when a sync references an unknown climb", async () => {
+    await seedUser(userId, 71, 41, "aurora");
+    let sharedCalls = 0;
+    const { fetchImpl } = makeFakeFetch([
+      auroraRoutes()[0]!,
+      {
+        match: (url, _m, body) => url.endsWith("/sync") && !body.includes("ascents="),
+        respond: () => {
+          sharedCalls++;
+          return jsonResponse(200, {
+            climbs: [
+              { uuid: "c1", name: "Jug Life" },
+              { uuid: "c2", name: "Crimp Reaper" },
+              { uuid: "c3", name: "Mind Meld" },
+            ],
+            climb_stats: [{ climb_uuid: "c3", angle: 40, difficulty_average: 24.2 }],
+            shared_syncs: [
+              { table_name: "climb_stats", last_synchronized_at: "2026-08-02 00:00:00.000000" },
+              { table_name: "climbs", last_synchronized_at: "2026-08-02 00:00:00.000000" },
+            ],
+            _complete: true,
+          });
+        },
+      },
+      stravaCreateRoute(201, 7001),
+      stravaPatchRoute,
+    ]);
+
+    const outcome = await syncOneUser(env, userId, fetchImpl);
+    expect(outcome.status).toBe("synced");
+    expect(sharedCalls).toBe(1);
+
+    const row = await env.DB.prepare(`SELECT summary FROM sessions WHERE user_id = ?`)
+      .bind(userId)
+      .first<{ summary: string }>();
+    expect(row?.summary).toContain("Jug Life");
+  });
 });
