@@ -86,4 +86,6 @@ Pipeline:
 ## Out of scope
 
 Updating a Strava activity after it is posted.
-A session that is posted and then grows further would leave the Strava activity stale, but that only happens after a two-hour gap, which is a new session under the 90-minute rule.
+For climbs the board has already reported, a posted session cannot grow: posting requires the last climb to be at least two hours old, and any later climb opens a new session under the 90-minute gap rule.
+The one case that escapes this is a climb the board surfaces late, after the session has already posted, which would leave the Strava activity stale.
+That was equally true before this change, so it is not a regression, and an activity update path stays out of scope until it is observed in practice.
