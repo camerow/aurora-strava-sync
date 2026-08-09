@@ -6,9 +6,13 @@ import type {
   SyncScheduleMode,
 } from "@sendtally/api-client";
 import { useQuery, type QueryState } from "../lib/useQuery";
+import { syncSettingsVM } from "./transforms";
+import type { SyncSettingsVM } from "./types";
 
 export type SyncSettingsFeature = {
   state: QueryState<ConnectionStatus>;
+  vm: SyncSettingsVM;
+  ready: boolean;
   reload: () => void;
   syncingBoard: string | null;
   syncBoard: (board: string) => Promise<void>;
@@ -17,6 +21,7 @@ export type SyncSettingsFeature = {
   scheduleBusy: boolean;
   setSchedule: (mode: SyncScheduleMode) => Promise<void>;
   message: string | null;
+  messageBoard: string | null;
 };
 
 export function useSyncSettings(api: SendtallyApi): SyncSettingsFeature {
@@ -26,11 +31,13 @@ export function useSyncSettings(api: SendtallyApi): SyncSettingsFeature {
   const [postingBoard, setPostingBoard] = React.useState<string | null>(null);
   const [scheduleBusy, setScheduleBusy] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
+  const [messageBoard, setMessageBoard] = React.useState<string | null>(null);
 
   const syncBoard = React.useCallback(
     async (board: string): Promise<void> => {
       setSyncingBoard(board);
       setMessage(null);
+      setMessageBoard(board);
       try {
         await api.syncNow(board);
         setMessage("Sync queued - new sessions land in about a minute.");
@@ -49,6 +56,7 @@ export function useSyncSettings(api: SendtallyApi): SyncSettingsFeature {
     async (board: string, mode: StravaPostingMode): Promise<void> => {
       setPostingBoard(board);
       setMessage(null);
+      setMessageBoard(board);
       try {
         await api.setStravaPosting(board, mode);
         reload();
@@ -64,6 +72,7 @@ export function useSyncSettings(api: SendtallyApi): SyncSettingsFeature {
     async (mode: SyncScheduleMode): Promise<void> => {
       setScheduleBusy(true);
       setMessage(null);
+      setMessageBoard(null);
       try {
         await api.setSyncSchedule(mode);
         reload();
@@ -75,8 +84,13 @@ export function useSyncSettings(api: SendtallyApi): SyncSettingsFeature {
     [api, reload]
   );
 
+  const status = state.status === "ready" ? state.data : null;
+  const vm = React.useMemo(() => syncSettingsVM(status, syncingBoard), [status, syncingBoard]);
+
   return {
     state,
+    vm,
+    ready: state.status === "ready",
     reload,
     syncingBoard,
     syncBoard,
@@ -85,5 +99,6 @@ export function useSyncSettings(api: SendtallyApi): SyncSettingsFeature {
     scheduleBusy,
     setSchedule,
     message,
+    messageBoard,
   };
 }
