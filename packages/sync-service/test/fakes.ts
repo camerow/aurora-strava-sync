@@ -1,8 +1,13 @@
-export type RecordedCall = { url: string; method: string; body: string };
+export type RecordedCall = {
+  url: string;
+  method: string;
+  body: string;
+  headers: Record<string, string>;
+};
 
 export type FakeRoute = {
-  match: (url: string, method: string, body: string) => boolean;
-  respond: (url: string, method: string, body: string) => Response;
+  match: (url: string, method: string, body: string, headers: Record<string, string>) => boolean;
+  respond: (url: string, method: string, body: string, headers: Record<string, string>) => Response;
 };
 
 export function makeFakeFetch(routes: FakeRoute[]): {
@@ -13,10 +18,16 @@ export function makeFakeFetch(routes: FakeRoute[]): {
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const req = new Request(input, init);
     const body = await req.clone().text();
-    const call = { url: req.url, method: req.method, body };
+    const headers: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    const call = { url: req.url, method: req.method, body, headers };
     calls.push(call);
     for (const r of routes) {
-      if (r.match(req.url, req.method, body)) return r.respond(req.url, req.method, body);
+      if (r.match(req.url, req.method, body, headers)) {
+        return r.respond(req.url, req.method, body, headers);
+      }
     }
     throw new Error(`fake fetch: unmatched ${req.method} ${req.url}`);
   }) as typeof fetch;

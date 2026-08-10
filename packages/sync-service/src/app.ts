@@ -112,7 +112,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       refresh_token_ciphertext: await encryptSecret(exchanged.tokens.refreshToken, c.env.TOKEN_KEY),
       expires_at: exchanged.tokens.expiresAt,
     });
-    await c.env.SYNC_QUEUE.send({ userId: state.userId });
+    await c.env.SYNC_QUEUE.send({ kind: "user", userId: state.userId });
     return c.redirect(`${c.env.WEB_APP_URL}/connected/strava`);
   });
 
@@ -155,7 +155,8 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       token_ciphertext: await encryptSecret(session.token, c.env.TOKEN_KEY),
       sync_since: null,
     });
-    await c.env.SYNC_QUEUE.send({ userId, board });
+    await c.env.SYNC_QUEUE.send({ kind: "catalogue", board });
+    await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
     return c.json({ board, boardUserId: session.userId });
   });
 
@@ -263,7 +264,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
             .slice(0, 10)} 00:00:00.000000`
         : null;
     await repo.setBoardPosting(c.env.DB, userId, board, true, postSince);
-    await c.env.SYNC_QUEUE.send({ userId, board });
+    await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
     return c.json({ board, mode });
   });
 
@@ -273,7 +274,9 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
     const userId = c.get("userId");
     const { board } = parsed.data;
-    await c.env.SYNC_QUEUE.send(board === undefined ? { userId } : { userId, board });
+    await c.env.SYNC_QUEUE.send(
+      board === undefined ? { kind: "user", userId } : { kind: "user", userId, board }
+    );
     return c.json({ queued: true });
   });
 

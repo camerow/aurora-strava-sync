@@ -51,7 +51,9 @@ describe("app", () => {
       fakeEnv
     );
     expect(res.status).toBe(200);
-    expect(queued).toEqual([{ userId: "user_connect", board: "tension" }]);
+    expect(queued).toHaveLength(2);
+    expect(queued).toContainEqual({ kind: "catalogue", board: "tension" });
+    expect(queued).toContainEqual({ kind: "user", userId: "user_connect", board: "tension" });
     expect(await res.json()).toEqual({ board: "tension", boardUserId: 42 });
 
     const loginCall = calls.find((c) => c.url.endsWith("/sessions"));
@@ -249,7 +251,7 @@ describe("app", () => {
       fakeEnv
     );
     expect(res.status).toBe(200);
-    expect(sent).toEqual([{ userId: "user_q" }]);
+    expect(sent).toEqual([{ kind: "user", userId: "user_q" }]);
   });
 
   it("enqueues a board-scoped sync job when a board is given", async () => {
@@ -268,7 +270,7 @@ describe("app", () => {
       fakeEnv
     );
     expect(res.status).toBe(200);
-    expect(sent).toEqual([{ userId: "user_qb", board: "kilter" }]);
+    expect(sent).toEqual([{ kind: "user", userId: "user_qb", board: "kilter" }]);
   });
 
   it("keeps existing connections when a second board is connected", async () => {
