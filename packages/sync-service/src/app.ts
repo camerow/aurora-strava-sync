@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import { defaultSessionConfig, isInProgress } from "@sendtally/core";
 import { z } from "zod";
 import type { Env } from "./bindings";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
@@ -111,7 +112,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       refresh_token_ciphertext: await encryptSecret(exchanged.tokens.refreshToken, c.env.TOKEN_KEY),
       expires_at: exchanged.tokens.expiresAt,
     });
-    await c.env.SYNC_QUEUE.send({ userId: state.userId });
+    await c.env.SYNC_QUEUE.send({ kind: "user", userId: state.userId });
     return c.redirect(`${c.env.WEB_APP_URL}/connected/strava`);
   });
 
@@ -154,7 +155,8 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       token_ciphertext: await encryptSecret(session.token, c.env.TOKEN_KEY),
       sync_since: null,
     });
-    await c.env.SYNC_QUEUE.send({ userId, board });
+    await c.env.SYNC_QUEUE.send({ kind: "catalogue", board });
+    await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
     return c.json({ board, boardUserId: session.userId });
   });
 
@@ -182,23 +184,36 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
   });
 
   app.get("/v1/sessions", async (c) => {
+    const userId = c.get("userId");
     const includeClimbs = c.req.query("include") === "climbs";
-    const rows = await repo.listSessions(c.env.DB, c.get("userId"), 200, includeClimbs);
-    const sessions = includeClimbs
-      ? rows.map(({ climbs_json, ...rest }) => ({
-          ...rest,
-          climbs: climbs_json == null ? [] : JSON.parse(climbs_json),
-        }))
-      : rows;
+    const user = await repo.getUser(c.env.DB, userId);
+    const now = wallClockNow(user?.timezone ?? "UTC");
+    const cfg = defaultSessionConfig();
+    const rows = await repo.listSessions(c.env.DB, userId, 200, includeClimbs);
+    const sessions = rows.map(({ climbs_json, ...rest }) => ({
+      ...rest,
+      inProgress: isInProgress(new Date(rest.end_at), cfg, now),
+      ...(includeClimbs ? { climbs: climbs_json == null ? [] : JSON.parse(climbs_json) } : {}),
+    }));
     return c.json({ sessions });
   });
 
   app.get("/v1/sessions/:fingerprint", async (c) => {
-    const row = await repo.getSession(c.env.DB, c.get("userId"), c.req.param("fingerprint"));
+    const userId = c.get("userId");
+    const row = await repo.getSession(c.env.DB, userId, c.req.param("fingerprint"));
     if (row === null) return c.json({ error: "not found" }, 404);
+    const user = await repo.getUser(c.env.DB, userId);
     const { climbs_json, ...rest } = row;
     return c.json({
-      session: { ...rest, climbs: climbs_json == null ? [] : JSON.parse(climbs_json) },
+      session: {
+        ...rest,
+        inProgress: isInProgress(
+          new Date(rest.end_at),
+          defaultSessionConfig(),
+          wallClockNow(user?.timezone ?? "UTC")
+        ),
+        climbs: climbs_json == null ? [] : JSON.parse(climbs_json),
+      },
     });
   });
 
@@ -249,7 +264,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
             .slice(0, 10)} 00:00:00.000000`
         : null;
     await repo.setBoardPosting(c.env.DB, userId, board, true, postSince);
-    await c.env.SYNC_QUEUE.send({ userId, board });
+    await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
     return c.json({ board, mode });
   });
 
@@ -259,7 +274,9 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
     const userId = c.get("userId");
     const { board } = parsed.data;
-    await c.env.SYNC_QUEUE.send(board === undefined ? { userId } : { userId, board });
+    await c.env.SYNC_QUEUE.send(
+      board === undefined ? { kind: "user", userId } : { kind: "user", userId, board }
+    );
     return c.json({ queued: true });
   });
 

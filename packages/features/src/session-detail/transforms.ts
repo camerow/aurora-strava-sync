@@ -150,8 +150,9 @@ export function sessionDetailVM(session: SessionDetail): SessionDetailVM {
     stats,
     bars,
     filterCounts,
-    syncLine:
-      session.strava_activity_id !== null
+    syncLine: session.inProgress
+      ? "IN PROGRESS · POSTS WHEN THE SESSION SETTLES"
+      : session.strava_activity_id !== null
         ? `ON STRAVA · POSTED ${(session.posted_at !== null ? new Date(session.posted_at) : start)
             .toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
             .toUpperCase()}`

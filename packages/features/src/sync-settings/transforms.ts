@@ -6,9 +6,14 @@ export function boardLabelOf(board: string): string {
   return BOARD_LABELS[board] ?? "Board";
 }
 
-function lastSyncLabelOf(lastSyncedAt: string | null): string {
-  if (lastSyncedAt === null) return "FIRST IMPORT PENDING";
-  const stamp = new Date(lastSyncedAt).toLocaleString("en-US", {
+const CATALOGUE_PENDING_ERROR = "waiting for board catalogue";
+
+function lastSyncLabelOf(
+  sync: { lastSyncedAt: string | null; lastError: string | null } | null
+): string {
+  if (sync === null || sync.lastSyncedAt === null) return "FIRST IMPORT PENDING";
+  if (sync.lastError === CATALOGUE_PENDING_ERROR) return "CATALOGUE SYNCING";
+  const stamp = new Date(sync.lastSyncedAt).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -50,6 +55,6 @@ export function syncSettingsVM(
         ? "BOARD ONLY"
         : "NOT CONNECTED",
     autoSync: status?.autoSync === true,
-    lastSyncLabel: lastSyncLabelOf(status?.sync?.lastSyncedAt ?? null),
+    lastSyncLabel: lastSyncLabelOf(status?.sync ?? null),
   };
 }

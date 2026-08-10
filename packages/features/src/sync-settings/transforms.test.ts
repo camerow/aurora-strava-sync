@@ -125,4 +125,18 @@ describe("syncSettingsVM", () => {
     expect(vm.lastSyncLabel.startsWith("LAST SYNC ")).toBe(true);
     expect(vm.lastSyncLabel).toMatch(/^LAST SYNC [A-Z0-9 ,:]+$/);
   });
+
+  it("renders a catalogue-pending label instead of a success stamp when the board catalogue is still filling", () => {
+    const vm = syncSettingsVM(
+      {
+        ...base,
+        sync: {
+          lastSyncedAt: "2026-07-01T18:00:00.000Z",
+          lastError: "waiting for board catalogue",
+        },
+      },
+      null
+    );
+    expect(vm.lastSyncLabel).toBe("CATALOGUE SYNCING");
+  });
 });

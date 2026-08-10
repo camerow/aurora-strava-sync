@@ -1,7 +1,5 @@
-export type SyncJob = {
-  userId: string;
-  board?: string;
-};
+export type SyncJob =
+  { kind: "user"; userId: string; board?: string } | { kind: "catalogue"; board: string };
 
 export type Env = {
   DB: D1Database;

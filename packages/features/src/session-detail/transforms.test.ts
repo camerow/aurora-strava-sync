@@ -13,6 +13,7 @@ const detail: SessionDetail = {
   title: "Solid climbing session · 4 climbs, top V7",
   strava_activity_id: 555,
   posted_at: "2026-07-02T00:00:00.000Z",
+  inProgress: false,
   climbs: [
     {
       time: "2026-07-01T18:00:00.000Z",
@@ -87,5 +88,35 @@ describe("sessionDetailVM", () => {
     const v8 = vm.bars.find((b) => b.gradeLabel === "V8");
     expect(v8?.count).toBe(0);
     expect(vm.filterCounts).toEqual({ all: 4, sent: 3, flash: 2, project: 1 });
+  });
+
+  it("shows the in-progress sync line even when not yet posted", () => {
+    const vm = sessionDetailVM({
+      ...detail,
+      inProgress: true,
+      strava_activity_id: null,
+      posted_at: null,
+    });
+    expect(vm.syncLine).toBe("IN PROGRESS · POSTS WHEN THE SESSION SETTLES");
+  });
+
+  it("prefers the in-progress sync line over an already-posted session", () => {
+    const vm = sessionDetailVM({ ...detail, inProgress: true });
+    expect(vm.syncLine).toBe("IN PROGRESS · POSTS WHEN THE SESSION SETTLES");
+  });
+
+  it("shows NOT POSTED TO STRAVA for a settled, unposted session", () => {
+    const vm = sessionDetailVM({
+      ...detail,
+      inProgress: false,
+      strava_activity_id: null,
+      posted_at: null,
+    });
+    expect(vm.syncLine).toBe("NOT POSTED TO STRAVA");
+  });
+
+  it("still shows ON STRAVA for a settled, posted session", () => {
+    const vm = sessionDetailVM({ ...detail, inProgress: false });
+    expect(vm.syncLine).toBe("ON STRAVA · POSTED JUL 2");
   });
 });
