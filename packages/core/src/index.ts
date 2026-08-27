@@ -1,4 +1,4 @@
-export { v, vFromDisplay } from "./grades";
+export { FONT_GRADES, v, vFromDisplay, vFromFont } from "./grades";
 export {
   buildSessions,
   defaultSessionConfig,

@@ -47,3 +47,38 @@ export function v(difficulty: number): number | undefined {
 export function vFromDisplay(display: number): number | undefined {
   return v(Math.round(display));
 }
+
+const V_BY_FONT: ReadonlyMap<string, number> = new Map([
+  ["1", 0],
+  ["2", 0],
+  ["3", 0],
+  ["4", 0],
+  ["4+", 0],
+  ["5", 1],
+  ["5+", 2],
+  ["6A", 3],
+  ["6A+", 3],
+  ["6B", 4],
+  ["6B+", 4],
+  ["6C", 5],
+  ["6C+", 5],
+  ["7A", 6],
+  ["7A+", 7],
+  ["7B", 8],
+  ["7B+", 8],
+  ["7C", 9],
+  ["7C+", 10],
+  ["8A", 11],
+  ["8A+", 12],
+  ["8B", 13],
+  ["8B+", 14],
+  ["8C", 15],
+  ["8C+", 16],
+  ["9A", 17],
+]);
+
+export const FONT_GRADES: readonly string[] = [...V_BY_FONT.keys()];
+
+export function vFromFont(font: string): number | undefined {
+  return V_BY_FONT.get(font.trim().toUpperCase());
+}

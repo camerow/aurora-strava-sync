@@ -19,6 +19,8 @@ export type StravaPostingMode = "off" | "new" | "all";
 
 export type SyncScheduleMode = "off" | "daily";
 
+export type ClimbGrade = { scale: "v"; value: number } | { scale: "font"; value: string };
+
 export type SessionClimb = {
   time: string;
   name: string;
@@ -26,11 +28,19 @@ export type SessionClimb = {
   kind: "send" | "attempt";
   tries: number;
   angle: number | null;
+  grade?: ClimbGrade;
 };
+
+export type SessionSource = "board" | "manual";
+
+export type SessionLocation = "indoor" | "outdoor";
 
 export type SessionRow = {
   fingerprint: string;
   board: string | null;
+  source: SessionSource;
+  location: SessionLocation | null;
+  name: string | null;
   start_at: string;
   end_at: string;
   climb_count: number;
@@ -40,6 +50,22 @@ export type SessionRow = {
   strava_activity_id: number | null;
   posted_at: string | null;
   inProgress: boolean;
+};
+
+export type LogClimbInput = {
+  name?: string;
+  grade: ClimbGrade;
+  kind?: "send" | "attempt";
+  tries?: number;
+};
+
+export type LogSessionInput = {
+  name?: string;
+  date: string;
+  startTime?: string;
+  durationMinutes?: number;
+  location: SessionLocation;
+  climbs: LogClimbInput[];
 };
 
 export type SessionDetail = SessionRow & { climbs: SessionClimb[] };
