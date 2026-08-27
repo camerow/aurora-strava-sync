@@ -63,7 +63,8 @@ export type LogSessionInput = {
   name?: string;
   date: string;
   startTime?: string;
-  durationMinutes?: number;
+  endTime?: string;
+  rpe?: number;
   location: SessionLocation;
   climbs: LogClimbInput[];
 };

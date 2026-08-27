@@ -17,7 +17,7 @@ const climbSchema = z.object({
   tries: z.number().int().min(1).max(99).default(1),
 });
 
-export const manualSessionBody = z.object({
+const manualSessionShape = z.object({
   name: z.string().min(1).max(120).optional(),
   date: z
     .string()
@@ -30,12 +30,38 @@ export const manualSessionBody = z.object({
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
     .optional(),
-  durationMinutes: z.number().int().min(5).max(720).default(90),
+  endTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
+  rpe: z.number().int().min(1).max(10).optional(),
   location: z.enum(["indoor", "outdoor"]),
   climbs: z.array(climbSchema).min(1).max(300),
 });
 
-export type ManualSessionBody = z.infer<typeof manualSessionBody>;
+export const manualSessionBody = manualSessionShape.superRefine((body, ctx) => {
+  if (sessionMinutes(body) > 720) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endTime"], message: "session too long" });
+  }
+});
+
+export type ManualSessionBody = z.infer<typeof manualSessionShape>;
+
+const DEFAULT_START = "12:00";
+const DEFAULT_DURATION_MINUTES = 90;
+
+function minutesOf(hhmm: string): number {
+  return Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+}
+
+function sessionMinutes(body: {
+  startTime?: string | undefined;
+  endTime?: string | undefined;
+}): number {
+  if (body.endTime === undefined) return DEFAULT_DURATION_MINUTES;
+  const diff = minutesOf(body.endTime) - minutesOf(body.startTime ?? DEFAULT_START);
+  return diff > 0 ? diff : diff + 24 * 60;
+}
 
 type ManualGrade = z.infer<typeof gradeSchema>;
 
@@ -44,8 +70,8 @@ function toVGrade(grade: ManualGrade): number {
 }
 
 function toSession(body: ManualSessionBody): Session {
-  const start = new Date(`${body.date}T${body.startTime ?? "12:00"}:00Z`);
-  const durationMs = body.durationMinutes * 60_000;
+  const start = new Date(`${body.date}T${body.startTime ?? DEFAULT_START}:00Z`);
+  const durationMs = sessionMinutes(body) * 60_000;
   const end = new Date(start.getTime() + durationMs);
   const step = durationMs / Math.max(body.climbs.length - 1, 1);
   const climbs: Climb[] = body.climbs.map((c, i) => ({
@@ -87,7 +113,7 @@ export function buildManualSession(
   history: Session[]
 ): ManualSessionInput {
   const session = toSession(body);
-  const result = score(session, history, defaultEffortConfig());
+  const result = score(session, history, defaultEffortConfig(), body.rpe);
   const topGrade = session.climbs.reduce((hi, c) => (c.vGrade > hi ? c.vGrade : hi), -1);
   return {
     fingerprint,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { v, vFromDisplay, vFromFont } from "./grades";
+import { fontFromV, v, vFromDisplay, vFromFont } from "./grades";
 
 describe("v", () => {
   const cases: Array<[difficulty: number, want: number | undefined]> = [
@@ -55,5 +55,20 @@ describe("vFromFont", () => {
 
   it.each(cases)("vFromFont(%j) = %s", (font, want) => {
     expect(vFromFont(font)).toBe(want);
+  });
+});
+
+describe("fontFromV", () => {
+  it("round-trips through vFromFont for every V grade", () => {
+    for (let grade = 0; grade <= 17; grade++) {
+      const font = fontFromV(grade);
+      expect(font).toBeDefined();
+      expect(vFromFont(font!)).toBe(grade);
+    }
+  });
+
+  it("is undefined outside the boulder range", () => {
+    expect(fontFromV(-1)).toBeUndefined();
+    expect(fontFromV(18)).toBeUndefined();
   });
 });

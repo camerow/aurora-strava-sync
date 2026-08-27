@@ -82,3 +82,28 @@ export const FONT_GRADES: readonly string[] = [...V_BY_FONT.keys()];
 export function vFromFont(font: string): number | undefined {
   return V_BY_FONT.get(font.trim().toUpperCase());
 }
+
+const FONT_BY_V: readonly string[] = [
+  "4",
+  "5",
+  "5+",
+  "6A",
+  "6B",
+  "6C",
+  "7A",
+  "7A+",
+  "7B",
+  "7C",
+  "7C+",
+  "8A",
+  "8A+",
+  "8B",
+  "8B+",
+  "8C",
+  "8C+",
+  "9A",
+];
+
+export function fontFromV(vGrade: number): string | undefined {
+  return FONT_BY_V[vGrade];
+}

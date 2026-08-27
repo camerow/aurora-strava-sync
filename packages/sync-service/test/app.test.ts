@@ -456,7 +456,7 @@ describe("app", () => {
     name: "Gym bouldering",
     date: "2026-08-20",
     startTime: "18:00",
-    durationMinutes: 120,
+    endTime: "20:00",
     location: "indoor",
     climbs: [
       { name: "Cave problem", grade: { scale: "v", value: 4 }, kind: "send", tries: 2 },
@@ -555,12 +555,13 @@ describe("app", () => {
   it("never marks a manual session in progress, even with a recent end time", async () => {
     const userId = "user_manual_recent";
     const start = new Date(Date.now() - 30 * 60_000);
+    const end = new Date(start.getTime() + 25 * 60_000);
     const res = await postSession(
       userId,
       logBody({
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString().slice(11, 16),
-        durationMinutes: 25,
+        endTime: end.toISOString().slice(11, 16),
       })
     );
     expect(res.status).toBe(201);
@@ -588,11 +589,45 @@ describe("app", () => {
       logBody({ date: "2026-02-31" }),
       logBody({ date: "20-08-2026" }),
       logBody({ location: "moon" }),
+      logBody({ rpe: 11 }),
+      logBody({ rpe: 6.5 }),
+      logBody({ startTime: "18:00", endTime: "07:00" }),
     ];
     for (const body of bad) {
       const res = await postSession("user_manual_bad", body);
       expect(res.status).toBe(400);
     }
+  });
+
+  it("uses a manual RPE override for the score and summary", async () => {
+    const res = await postSession("user_manual_rpe", logBody({ rpe: 9, name: undefined }));
+    expect(res.status).toBe(201);
+    const { session } = (await res.json()) as ManualSessionResponse;
+    expect(session.rpe).toBe(9);
+    expect(session.title).toContain("Hard climbing session");
+
+    const row = await env.DB.prepare(
+      `SELECT summary FROM sessions WHERE user_id = 'user_manual_rpe'`
+    ).first<{ summary: string }>();
+    expect(row?.summary).toContain("RPE 9/10");
+  });
+
+  it("wraps an end time past midnight into the next day", async () => {
+    const res = await postSession(
+      "user_manual_midnight",
+      logBody({ startTime: "23:00", endTime: "01:00" })
+    );
+    expect(res.status).toBe(201);
+    const { session } = (await res.json()) as ManualSessionResponse;
+    expect(session.start_at).toBe("2026-08-20T23:00:00.000Z");
+    expect(session.end_at).toBe("2026-08-21T01:00:00.000Z");
+  });
+
+  it("defaults to a 90-minute session when no end time is given", async () => {
+    const res = await postSession("user_manual_defaults", logBody({ endTime: undefined }));
+    expect(res.status).toBe(201);
+    const { session } = (await res.json()) as ManualSessionResponse;
+    expect(session.end_at).toBe("2026-08-20T19:30:00.000Z");
   });
 
   it("updates a manual session and re-scores it", async () => {

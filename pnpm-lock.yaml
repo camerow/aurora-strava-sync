@@ -184,6 +184,9 @@ importers:
       '@sendtally/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@sendtally/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/react':
         specifier: ^19.1.0
