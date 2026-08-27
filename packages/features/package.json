@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./log-session": "./src/log-session/index.ts",
     "./session-detail": "./src/session-detail/index.ts",
     "./sessions": "./src/sessions/index.ts",
     "./trends": "./src/trends/index.ts",
@@ -16,7 +17,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@sendtally/api-client": "workspace:*"
+    "@sendtally/api-client": "workspace:*",
+    "@sendtally/core": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18"

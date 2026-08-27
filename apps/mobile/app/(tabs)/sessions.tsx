@@ -74,27 +74,43 @@ export default function Sessions(): React.ReactElement {
         ListHeaderComponent={
           <View style={{ gap: 14, paddingTop: 12, paddingBottom: 5 }}>
             <Logo size={18} />
-            <View style={{ gap: 4 }}>
-              <Text
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.display,
+                    fontSize: 32,
+                    letterSpacing: -1,
+                    color: colors.gunmetal,
+                  }}
+                >
+                  Sessions
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.monoMedium,
+                    fontSize: 10,
+                    letterSpacing: 0.8,
+                    color: colors.textMuted,
+                  }}
+                >
+                  {caption}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => router.push("/session/new")}
                 style={{
-                  fontFamily: fonts.display,
-                  fontSize: 32,
-                  letterSpacing: -1,
-                  color: colors.gunmetal,
+                  minHeight: 44,
+                  justifyContent: "center",
+                  paddingHorizontal: 16,
+                  borderRadius: radius.control,
+                  backgroundColor: colors.watermelonInk,
                 }}
               >
-                Sessions
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.monoMedium,
-                  fontSize: 10,
-                  letterSpacing: 0.8,
-                  color: colors.textMuted,
-                }}
-              >
-                {caption}
-              </Text>
+                <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.white }}>
+                  Log a session
+                </Text>
+              </Pressable>
             </View>
             {boardsInSessions.length > 1 && (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>

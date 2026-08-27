@@ -6,6 +6,9 @@ function session(overrides: Partial<SessionRow> = {}): SessionRow {
   return {
     fingerprint: "fp",
     board: "tension",
+    source: "board",
+    location: null,
+    name: null,
     start_at: "2026-08-08T18:00:00.000Z",
     end_at: "2026-08-08T19:00:00.000Z",
     climb_count: 3,

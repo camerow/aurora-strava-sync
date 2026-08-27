@@ -3,6 +3,7 @@ import {
   type ConnectBoardInput,
   type ConnectBoardResult,
   type ConnectionStatus,
+  type LogSessionInput,
   type SessionRow,
   type SessionDetail,
   type SessionWithClimbs,
@@ -54,6 +55,29 @@ export class SendtallyApi {
     return this.request<{ session: SessionDetail }>(
       `/v1/sessions/${encodeURIComponent(fingerprint)}`
     );
+  }
+
+  logSession(input: LogSessionInput): Promise<{ session: SessionDetail }> {
+    return this.request<{ session: SessionDetail }>("/v1/sessions", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  updateLoggedSession(
+    fingerprint: string,
+    input: LogSessionInput
+  ): Promise<{ session: SessionDetail }> {
+    return this.request<{ session: SessionDetail }>(
+      `/v1/sessions/${encodeURIComponent(fingerprint)}`,
+      { method: "PUT", body: JSON.stringify(input) }
+    );
+  }
+
+  deleteLoggedSession(fingerprint: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>(`/v1/sessions/${encodeURIComponent(fingerprint)}`, {
+      method: "DELETE",
+    });
   }
 
   connectBoard(input: ConnectBoardInput): Promise<ConnectBoardResult> {

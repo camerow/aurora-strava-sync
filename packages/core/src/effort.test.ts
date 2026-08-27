@@ -147,4 +147,20 @@ describe("score", () => {
     const near = score(mkSession(10, 18, 40, 5), history, defaultEffortConfig());
     expect(near.title).not.toContain("volume climbing session");
   });
+
+  it("uses the RPE override for the rating, title, and summary", () => {
+    const history = history6(8, 4);
+    const target = mkSession(10, 18, 8, 4);
+    const auto = score(target, history, defaultEffortConfig());
+    expect(auto.rpe).toBe(6);
+    const overridden = score(target, history, defaultEffortConfig(), 9);
+    expect(overridden.rpe).toBe(9);
+    expect(overridden.title).toContain("Hard climbing session");
+    expect(overridden.summary).toContain("RPE 9/10");
+  });
+
+  it("clamps the RPE override to 1-10", () => {
+    expect(score(mkSession(10, 18, 3, 4), [], defaultEffortConfig(), 0).rpe).toBe(1);
+    expect(score(mkSession(10, 18, 3, 4), [], defaultEffortConfig(), 12).rpe).toBe(10);
+  });
 });

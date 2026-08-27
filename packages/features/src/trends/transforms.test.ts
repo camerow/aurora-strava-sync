@@ -12,6 +12,9 @@ function session(
   return {
     fingerprint: `fp-${startIso}-${board}`,
     board,
+    source: "board",
+    location: null,
+    name: null,
     start_at: startIso,
     end_at: startIso,
     climb_count: climbs.length,

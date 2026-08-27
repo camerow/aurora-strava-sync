@@ -23,6 +23,9 @@ export type StravaConnectionRow = typeof stravaConnections.$inferSelect;
 export type SessionRow = {
   fingerprint: string;
   board: string | null;
+  source: string;
+  location: string | null;
+  name: string | null;
   start_at: string;
   end_at: string;
   climb_count: number;
@@ -36,6 +39,9 @@ export type SessionRow = {
 const sessionListColumns = {
   fingerprint: sessions.fingerprint,
   board: sessions.board,
+  source: sessions.source,
+  location: sessions.location,
+  name: sessions.name,
   start_at: sessions.start_at,
   end_at: sessions.end_at,
   climb_count: sessions.climb_count,
@@ -293,6 +299,66 @@ export async function upsertScoredSession(
         climbs_json: s.climbs_json,
       },
     });
+}
+
+export type ManualSessionInput = {
+  fingerprint: string;
+  location: string;
+  name: string | null;
+  start_at: string;
+  end_at: string;
+  climb_count: number;
+  top_grade: number;
+  rpe: number;
+  title: string;
+  summary: string;
+  climbs_json: string;
+};
+
+export async function insertManualSession(
+  db: D1Database,
+  userId: string,
+  s: ManualSessionInput
+): Promise<void> {
+  await drizzle(db)
+    .insert(sessions)
+    .values({ user_id: userId, source: "manual", board: null, ...s });
+}
+
+export async function updateManualSession(
+  db: D1Database,
+  userId: string,
+  s: ManualSessionInput
+): Promise<boolean> {
+  const { fingerprint, ...rest } = s;
+  const result = await drizzle(db)
+    .update(sessions)
+    .set(rest)
+    .where(
+      and(
+        eq(sessions.user_id, userId),
+        eq(sessions.fingerprint, fingerprint),
+        eq(sessions.source, "manual")
+      )
+    );
+  return result.meta.changes > 0;
+}
+
+export async function deleteManualSession(
+  db: D1Database,
+  userId: string,
+  fingerprint: string
+): Promise<boolean> {
+  const result = await drizzle(db)
+    .delete(sessions)
+    .where(
+      and(
+        eq(sessions.user_id, userId),
+        eq(sessions.fingerprint, fingerprint),
+        eq(sessions.source, "manual")
+      )
+    );
+  return result.meta.changes > 0;
 }
 
 export async function markSessionPosted(

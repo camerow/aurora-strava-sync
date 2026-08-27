@@ -15,10 +15,10 @@ type LoaderData = {
 export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
   const api = await requireApi(args);
   const status = await api.status();
-  if (!status.boards.some((b) => b.status === "active")) {
+  const { sessions } = await api.sessions();
+  if (!status.boards.some((b) => b.status === "active") && sessions.length === 0) {
     throw redirect("/app/setup");
   }
-  const { sessions } = await api.sessions();
   return { status, sessions };
 }
 
@@ -113,6 +113,22 @@ export default function Sessions(): React.ReactElement {
           {visible.length === 1 ? "1 SESSION" : `${visible.length} SESSIONS`}
         </span>
         <div style={{ flex: 1 }} />
+        <Link
+          to="/app/sessions/new"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontWeight: 600,
+            fontSize: 13,
+            color: "var(--bs-white)",
+            background: "var(--bs-watermelon-ink)",
+            borderRadius: "var(--radius-control)",
+            padding: "9px 16px",
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Log a session
+        </Link>
         <button
           onClick={() => void syncNow()}
           disabled={syncRequested}

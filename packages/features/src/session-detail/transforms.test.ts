@@ -5,6 +5,9 @@ import { climbVMs, filterAndSortClimbs, sessionDetailVM } from "./transforms";
 const detail: SessionDetail = {
   fingerprint: "42-1",
   board: "tension",
+  source: "board",
+  location: null,
+  name: null,
   start_at: "2026-07-01T17:50:00.000Z",
   end_at: "2026-07-01T19:25:00.000Z",
   climb_count: 4,

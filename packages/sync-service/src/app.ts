@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Env } from "./bindings";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
 import { decryptSecret, encryptSecret } from "./lib/crypto";
+import { buildManualSession, historySession, manualSessionBody } from "./lib/manual";
 import * as repo from "./lib/repo";
 import { authorizeUrl, exchangeAuthCode, StravaUnauthorizedError } from "./lib/strava";
 import { wallClockNow } from "./lib/time";
@@ -120,7 +121,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     cors({
       origin: c.env.WEB_APP_URL,
       allowHeaders: ["Authorization", "Content-Type"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     })(c, next)
   );
   app.use("/v1/*", async (c, next) => {
@@ -192,7 +193,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const rows = await repo.listSessions(c.env.DB, userId, 200, includeClimbs);
     const sessions = rows.map(({ climbs_json, ...rest }) => ({
       ...rest,
-      inProgress: isInProgress(new Date(rest.end_at), cfg, now),
+      inProgress: rest.source === "manual" ? false : isInProgress(new Date(rest.end_at), cfg, now),
       ...(includeClimbs ? { climbs: climbs_json == null ? [] : JSON.parse(climbs_json) } : {}),
     }));
     return c.json({ sessions });
@@ -207,14 +208,80 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     return c.json({
       session: {
         ...rest,
-        inProgress: isInProgress(
-          new Date(rest.end_at),
-          defaultSessionConfig(),
-          wallClockNow(user?.timezone ?? "UTC")
-        ),
+        inProgress:
+          rest.source === "manual"
+            ? false
+            : isInProgress(
+                new Date(rest.end_at),
+                defaultSessionConfig(),
+                wallClockNow(user?.timezone ?? "UTC")
+              ),
         climbs: climbs_json == null ? [] : JSON.parse(climbs_json),
       },
     });
+  });
+
+  const manualScoringHistory = async (
+    db: D1Database,
+    userId: string,
+    excludeFingerprint?: string
+  ) => {
+    const rows = await repo.listSessions(db, userId, 200, true);
+    return rows
+      .filter((r) => r.fingerprint !== excludeFingerprint)
+      .map(historySession)
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+  };
+
+  const sessionResponse = async (c: { env: Env }, userId: string, fingerprint: string) => {
+    const row = await repo.getSession(c.env.DB, userId, fingerprint);
+    if (row === null) return null;
+    const { climbs_json, ...rest } = row;
+    return {
+      ...rest,
+      inProgress: false,
+      climbs: climbs_json == null ? [] : JSON.parse(climbs_json),
+    };
+  };
+
+  app.post("/v1/sessions", async (c) => {
+    const parsed = manualSessionBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
+    const userId = c.get("userId");
+    await repo.ensureUser(c.env.DB, userId);
+    const fingerprint = `manual-${crypto.randomUUID()}`;
+    const history = await manualScoringHistory(c.env.DB, userId);
+    const input = buildManualSession(fingerprint, parsed.data, history);
+    await repo.insertManualSession(c.env.DB, userId, input);
+    return c.json({ session: await sessionResponse(c, userId, fingerprint) }, 201);
+  });
+
+  app.put("/v1/sessions/:fingerprint", async (c) => {
+    const parsed = manualSessionBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
+    const userId = c.get("userId");
+    const fingerprint = c.req.param("fingerprint");
+    const existing = await repo.getSession(c.env.DB, userId, fingerprint);
+    if (existing === null) return c.json({ error: "not found" }, 404);
+    if (existing.source !== "manual") {
+      return c.json({ error: "only manually logged sessions can be edited" }, 409);
+    }
+    const history = await manualScoringHistory(c.env.DB, userId, fingerprint);
+    const input = buildManualSession(fingerprint, parsed.data, history);
+    await repo.updateManualSession(c.env.DB, userId, input);
+    return c.json({ session: await sessionResponse(c, userId, fingerprint) });
+  });
+
+  app.delete("/v1/sessions/:fingerprint", async (c) => {
+    const userId = c.get("userId");
+    const fingerprint = c.req.param("fingerprint");
+    const existing = await repo.getSession(c.env.DB, userId, fingerprint);
+    if (existing === null) return c.json({ error: "not found" }, 404);
+    if (existing.source !== "manual") {
+      return c.json({ error: "only manually logged sessions can be deleted" }, 409);
+    }
+    await repo.deleteManualSession(c.env.DB, userId, fingerprint);
+    return c.json({ deleted: true });
   });
 
   app.get("/v1/status", async (c) => {

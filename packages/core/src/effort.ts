@@ -40,7 +40,12 @@ export function sessionPoints(s: Session, cfg: EffortConfig): number {
   return pts;
 }
 
-export function score(target: Session, history: Session[], cfg: EffortConfig): EffortResult {
+export function score(
+  target: Session,
+  history: Session[],
+  cfg: EffortConfig,
+  rpeOverride?: number
+): EffortResult {
   const pts = sessionPoints(target, cfg);
 
   let ref = history.filter(
@@ -74,7 +79,7 @@ export function score(target: Session, history: Session[], cfg: EffortConfig): E
   }
   if (rollingMax > 0 && target.climbs.some((c) => c.vGrade > rollingMax)) nudge++;
 
-  const rpe = Math.min(10, Math.max(1, Math.round(base + nudge)));
+  const rpe = Math.min(10, Math.max(1, Math.round(rpeOverride ?? base + nudge)));
 
   return {
     rpe,
