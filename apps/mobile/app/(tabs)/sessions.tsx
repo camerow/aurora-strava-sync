@@ -107,9 +107,7 @@ export default function Sessions(): React.ReactElement {
                   backgroundColor: colors.watermelonInk,
                 }}
               >
-                <Text
-                  style={{ fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.white }}
-                >
+                <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.white }}>
                   Log a session
                 </Text>
               </Pressable>

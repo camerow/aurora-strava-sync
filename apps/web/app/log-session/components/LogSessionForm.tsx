@@ -186,7 +186,12 @@ function ClimbRow({
       <select
         value={climb.grade}
         onChange={(e) => onChange({ ...climb, grade: e.target.value })}
-        style={{ ...inputStyle, fontFamily: "var(--font-mono)", fontWeight: 600, padding: "11px 8px" }}
+        style={{
+          ...inputStyle,
+          fontFamily: "var(--font-mono)",
+          fontWeight: 600,
+          padding: "11px 8px",
+        }}
       >
         {gradeOptions(scale).map((g) => (
           <option key={g} value={g}>
@@ -343,7 +348,9 @@ export function LogSessionForm({ api }: { api: SendtallyApi }): React.ReactEleme
               style={inputStyle}
             />
           </Field>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}
+          >
             <Field label="START TIME">
               <input
                 type="time"
@@ -395,7 +402,14 @@ export function LogSessionForm({ api }: { api: SendtallyApi }): React.ReactEleme
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 14,
+            }}
+          >
             <span style={{ ...monoLabel, color: "var(--text-label-accent)" }}>
               CLIMBS · {draft.climbs.length}
             </span>

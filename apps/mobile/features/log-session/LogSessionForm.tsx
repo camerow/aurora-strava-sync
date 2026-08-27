@@ -168,7 +168,12 @@ function ClimbCard({
         />
       </View>
       <View
-        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 9 }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 9,
+        }}
       >
         <View style={{ flexDirection: "row", gap: 6 }}>
           <Chip
@@ -258,7 +263,10 @@ export function LogSessionForm(): React.ReactElement {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 24, gap: 14 }}
       >
-        <Pressable onPress={() => router.back()} style={{ minHeight: 32, justifyContent: "center" }}>
+        <Pressable
+          onPress={() => router.back()}
+          style={{ minHeight: 32, justifyContent: "center" }}
+        >
           <Text
             style={{
               fontFamily: fonts.monoMedium,
@@ -355,7 +363,11 @@ export function LogSessionForm(): React.ReactElement {
 
         <View style={{ gap: 8 }}>
           <View
-            style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}
+            style={{
+              flexDirection: "row",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+            }}
           >
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 7 }}>
               <LabelText>RPE</LabelText>
@@ -366,7 +378,10 @@ export function LogSessionForm(): React.ReactElement {
               </Text>
             </View>
             {draft.rpe !== null && (
-              <Pressable onPress={() => setDraft({ ...draft, rpe: null })} style={{ minHeight: 32, justifyContent: "center" }}>
+              <Pressable
+                onPress={() => setDraft({ ...draft, rpe: null })}
+                style={{ minHeight: 32, justifyContent: "center" }}
+              >
                 <Text
                   style={{
                     fontFamily: fonts.monoMedium,
