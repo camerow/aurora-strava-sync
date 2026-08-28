@@ -47,7 +47,7 @@ export default function SignInVerify(): React.ReactElement {
   const { title, body } = COPY[state];
   return (
     <AuthShell>
-      <StepCard step="STEP 1 OF 4 · ACCOUNT">
+      <StepCard step="STEP 1 OF 2 · ACCOUNT">
         <StepTitle>{title}</StepTitle>
         <StepBody>{body}</StepBody>
         {state !== "verifying" && (

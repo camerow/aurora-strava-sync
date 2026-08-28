@@ -50,9 +50,9 @@ export default function TabsLayout(): React.ReactElement | null {
         }}
       />
       <Tabs.Screen
-        name="sync"
+        name="settings"
         options={{
-          tabBarLabel: ({ focused }) => <TabLabel label="SYNC" focused={focused} />,
+          tabBarLabel: ({ focused }) => <TabLabel label="SETTINGS" focused={focused} />,
         }}
       />
     </Tabs>

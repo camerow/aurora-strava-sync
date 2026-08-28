@@ -32,7 +32,7 @@ export function AuthShell({ children }: { children: React.ReactNode }): React.Re
         <span
           style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "rgba(64,63,76,0.55)" }}
         >
-          free · not affiliated with Strava or Aurora Climbing
+          free · not affiliated with Strava
         </span>
       </div>
     </div>

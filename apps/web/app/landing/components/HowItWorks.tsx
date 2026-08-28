@@ -4,13 +4,13 @@ import { Card, Label } from "@sendtally/design";
 const STEPS: Array<[string, string, string]> = [
   [
     "01",
-    "Sign in to your board account",
-    "The same Aurora login you use in the Tension or Kilter app. It's stored encrypted and used only to read your logbook - never to write to it.",
+    "Log your session",
+    "Date, times, indoor or outdoor, and the climbs - V-scale or Font grades, sends and attempts, tries. About a minute, right after you climb.",
   ],
   [
     "02",
-    "Import your history",
-    "Every session you've ever logged comes across on day one, so the trends have something to say before your next climb.",
+    "Get an effort score",
+    "Every session is scored 1-10 against your own last eight weeks, so a big night reads as a big night - not just a list of grades.",
   ],
   [
     "03",
@@ -25,11 +25,11 @@ export function HowItWorks(): React.ReactElement {
       <div className="l-section-inner">
         <div className="l-section-header">
           <h2 className="l-section-title" style={{ color: "var(--bs-gunmetal)" }}>
-            Two connections, once.
+            A minute after you climb.
           </h2>
           <span className="l-section-blurb">
-            After setup it runs on its own. Sessions show up within a few hours of you logging them
-            in the board app.
+            No accounts to link, no importers to babysit. Log the session and the trends, effort
+            score and Strava post follow from it.
           </span>
         </div>
         <div className="l-card-grid">

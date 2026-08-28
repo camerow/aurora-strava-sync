@@ -70,8 +70,8 @@ export function PricePanel(): React.ReactElement {
             GET STARTED
           </span>
           <span style={{ fontSize: 15, lineHeight: 1.55, color: "rgba(255,255,255,0.85)" }}>
-            Open to everyone. Sign in with an email link, connect Strava and your board, and the
-            next session posts itself.
+            Open to everyone. Sign in with an email code, log your first session, and connect Strava
+            whenever you want it on your feed.
           </span>
           <Button variant="azure" href="/app">
             Create account

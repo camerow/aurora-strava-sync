@@ -7,11 +7,8 @@ type Result = "FLASH" | "SENT" | "PROJECT";
 type Climb = {
   n: number;
   name: string;
-  setter: string;
   grade: string;
-  angle: string;
   burns: string;
-  rest: string;
   result: Result;
   top?: boolean;
 };
@@ -20,67 +17,49 @@ const CLIMBS: Climb[] = [
   {
     n: 1,
     name: "Static Cling",
-    setter: "@board_rat",
     grade: "V2",
-    angle: "45°",
     burns: "1",
-    rest: "n/a",
     result: "FLASH",
   },
   {
     n: 4,
     name: "Pinch Point",
-    setter: "@setter_steve",
     grade: "V5",
-    angle: "45°",
     burns: "2",
-    rest: "2:30",
     result: "SENT",
   },
   {
     n: 7,
     name: "Dead Point Drill",
-    setter: "@jwebb",
     grade: "V6",
-    angle: "45°",
     burns: "2",
-    rest: "3:00",
     result: "SENT",
   },
   {
     n: 9,
     name: "Cutting Loose",
-    setter: "@mika.s",
     grade: "V6",
-    angle: "45°",
     burns: "3",
-    rest: "3:30",
     result: "SENT",
   },
   {
     n: 10,
     name: "Thread the Needle",
-    setter: "@jwebb",
     grade: "V7",
-    angle: "45°",
     burns: "5",
-    rest: "4:20",
     result: "SENT",
     top: true,
   },
   {
     n: 12,
     name: "Full Value",
-    setter: "@setter_steve",
     grade: "V8",
-    angle: "45°",
     burns: "2",
-    rest: "4:30",
     result: "PROJECT",
   },
 ];
 
-const HEADINGS = ["#", "PROBLEM", "SETTER", "GRADE", "ANGLE", "BURNS", "REST", "RESULT"];
+const HEADINGS = ["#", "CLIMB", "GRADE", "BURNS", "RESULT"];
 
 const resultStyles: Record<Result, React.CSSProperties> = {
   FLASH: {
@@ -139,9 +118,6 @@ function ClimbRow({ climb }: { climb: Climb }): React.ReactElement {
         {climb.name}
       </span>
       <span className="l-climb-meta">
-        <span style={{ ...metaStyle, color: "rgba(64,63,76,0.55)", minWidth: 0 }}>
-          {climb.setter}
-        </span>
         <span
           style={{
             fontFamily: "var(--font-mono)",
@@ -152,14 +128,9 @@ function ClimbRow({ climb }: { climb: Climb }): React.ReactElement {
         >
           {climb.grade}
         </span>
-        <span style={metaStyle}>{climb.angle}</span>
         <span style={metaStyle}>
           {climb.burns}
           <span className="l-inline-label">{climb.burns === "1" ? " burn" : " burns"}</span>
-        </span>
-        <span style={metaStyle}>
-          <span className="l-inline-label">rest </span>
-          {climb.rest}
         </span>
       </span>
       <span className="l-climb-result">
@@ -177,8 +148,8 @@ export function SessionBreakdown(): React.ReactElement {
           Every session, climb by climb.
         </h2>
         <span className="l-section-blurb">
-          Burns, rest between attempts, setter, angle and result - kept for every climb so a project
-          you have been chipping at for a month reads as one story.
+          Grades, burns and results - kept for every climb so a project you have been chipping at
+          for a month reads as one story.
         </span>
       </div>
 
@@ -191,10 +162,10 @@ export function SessionBreakdown(): React.ReactElement {
             letterSpacing: "-0.02em",
           }}
         >
-          Tension Board 2 - Jul 30
+          Tuesday night - Jul 30
         </span>
         <Label on="light" style={{ letterSpacing: "0.06em" }}>
-          THU JUL 30 · 7:02 PM · 45° · 1H 28M
+          THU JUL 30 · 7:02 PM · INDOOR · 1H 28M
         </Label>
       </div>
 

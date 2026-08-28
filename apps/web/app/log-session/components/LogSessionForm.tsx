@@ -396,7 +396,7 @@ export function LogSessionForm({ api }: { api: SendtallyApi }): React.ReactEleme
             <span style={columnHead}>AFTER YOU SAVE</span>
             <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: "rgba(64,63,76,0.88)" }}>
               sendtally titles the session and builds the climb log. Leave RPE on auto and it is
-              scored against your last 8 weeks — same as a board sync.
+              scored against your last 8 weeks of sessions.
             </p>
           </div>
         </div>

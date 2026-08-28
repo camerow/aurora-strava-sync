@@ -16,7 +16,7 @@ export async function loader(args: LoaderFunctionArgs): Promise<null> {
 const NAV_ITEMS: Array<[string, string]> = [
   ["Sessions", "/app"],
   ["Trends", "/app/trends"],
-  ["Sync & accounts", "/app/settings"],
+  ["Settings", "/app/settings"],
 ];
 
 export default function AppLayout(): React.ReactElement {

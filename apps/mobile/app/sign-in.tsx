@@ -257,8 +257,8 @@ export default function SignIn(): React.ReactElement {
               color: "rgba(64,63,76,0.58)",
             }}
           >
-            First-time setup - Strava and board linking - happens on the web. This app reads,
-            filters and syncs.
+            Strava linking happens on the web. Log sessions here or at sendtally.com - same account,
+            same logbook.
           </Text>
         </View>
       </KeyboardAvoidingView>

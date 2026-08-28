@@ -7,9 +7,9 @@ export function Hero(): React.ReactElement {
     <div className="l-hero">
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 26 }}>
         <Label on="accent" style={{ letterSpacing: "0.1em" }}>
-          TENSION · KILTER · GRASSHOPPER · DECOY · TOUCHSTONE · SO ILL · AURORA
+          LOG · SCORE · TREND · STRAVA
         </Label>
-        <h1 className="l-hero-title">See what six months of board sessions add up to.</h1>
+        <h1 className="l-hero-title">See what six months of climbing adds up to.</h1>
         <p
           style={{
             margin: 0,
@@ -20,10 +20,10 @@ export function Hero(): React.ReactElement {
             textWrap: "pretty",
           }}
         >
-          The board app remembers every climb and shows you none of the pattern. sendtally reads
-          your logbook out of your board account and turns it into volume, grade pyramids, flash
-          rate and progression - session by session, week by week. It posts each session to Strava
-          too.
+          A session takes a minute to log - grades, sends, attempts - and sendtally turns the
+          history into volume, grade pyramids, flash rate and progression, session by session, week
+          by week. Every session gets an effort score against your own last eight weeks. It posts to
+          Strava too.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
           <div>
@@ -38,7 +38,7 @@ export function Hero(): React.ReactElement {
               color: "rgba(64,63,76,0.58)",
             }}
           >
-            Free · one-time code sign-in · your whole history imported on day one
+            Free · one-time code sign-in · log your first session in a minute
           </span>
         </div>
       </div>

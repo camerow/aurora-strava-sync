@@ -59,7 +59,7 @@ export function SessionPreviewCard(): React.ReactElement {
       <div
         style={{ padding: "0 18px 14px", fontWeight: 600, fontSize: 19, letterSpacing: "-0.01em" }}
       >
-        Tension Board 2 - 18 climbs, top V7
+        Solid climbing session - 18 climbs, top V7
       </div>
       <StatStrip
         stats={[

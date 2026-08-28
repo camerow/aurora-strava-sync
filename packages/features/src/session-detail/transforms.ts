@@ -93,7 +93,12 @@ export function sessionDetailVM(session: SessionDetail): SessionDetailVM {
   const avg = graded.length > 0 ? graded.reduce((a, c) => a + c.vGrade, 0) / graded.length : null;
   const top = topSendGrade(session.climbs);
 
-  const boardLabel = BOARD_LABELS[board ?? ""] ?? "Board";
+  const titleLabel =
+    session.name !== null && session.name !== ""
+      ? session.name
+      : session.source === "manual"
+        ? "Logged session"
+        : (BOARD_LABELS[board ?? ""] ?? "Board session");
   const dateLabel = start.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -144,9 +149,11 @@ export function sessionDetailVM(session: SessionDetail): SessionDetailVM {
     project: climbs.filter(FILTERS.project).length,
   };
 
+  const location = session.location === null ? "" : ` · ${session.location.toUpperCase()}`;
+
   return {
-    title: `${boardLabel} - ${dateLabel}`,
-    meta: `${weekday} ${dateLabel.toUpperCase()} · ${time} · ${durationLabel(session.start_at, session.end_at)} · RPE ${session.rpe}/10`,
+    title: `${titleLabel} - ${dateLabel}`,
+    meta: `${weekday} ${dateLabel.toUpperCase()} · ${time} · ${durationLabel(session.start_at, session.end_at)}${location} · RPE ${session.rpe}/10`,
     stats,
     bars,
     filterCounts,
@@ -156,7 +163,9 @@ export function sessionDetailVM(session: SessionDetail): SessionDetailVM {
         ? `ON STRAVA · POSTED ${(session.posted_at !== null ? new Date(session.posted_at) : start)
             .toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
             .toUpperCase()}`
-        : "NOT POSTED TO STRAVA",
+        : session.source === "manual"
+          ? "LOGGED MANUALLY"
+          : "NOT POSTED TO STRAVA",
     stravaUrl:
       session.strava_activity_id !== null
         ? `https://www.strava.com/activities/${session.strava_activity_id}`
