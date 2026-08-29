@@ -105,11 +105,11 @@ export function Insights(): React.ReactElement {
             className="l-section-title"
             style={{ color: "var(--text-on-light)", maxWidth: 640, textWrap: "balance" }}
           >
-            Five things the board apps never show you.
+            Five things your logbook never shows you.
           </h2>
           <span className="l-section-blurb">
-            These are the screens you get on day one, built from the sessions you already logged.
-            Every one of them is a click deep.
+            These are the screens your logged sessions build, and every one of them is a click deep.
+            The more you log, the more they have to say.
           </span>
         </div>
 
@@ -135,7 +135,7 @@ export function Insights(): React.ReactElement {
             headline="36%"
             meta="UP FROM 22% IN MARCH"
             chart={<MiniBars bars={FLASH} height={48} />}
-            body="Reading the board is trainable. Six months of mileage shows up here before it shows up in the grades."
+            body="Reading a problem is trainable. Six months of mileage shows up here before it shows up in the grades."
           />
 
           <InsightCard
@@ -143,7 +143,7 @@ export function Insights(): React.ReactElement {
             headline="V7"
             meta="JUL 30 · THREAD THE NEEDLE"
             chart={<MiniBars bars={HARDEST} height={48} />}
-            body="Twelve weeks from the first V6 to the first V7, and both V7s came at 40° or steeper."
+            body="Twelve weeks from the first V6 to the first V7, and both V7s came inside three weeks of each other."
           />
 
           <InsightCard
@@ -152,7 +152,7 @@ export function Insights(): React.ReactElement {
             headline="V4.9 this week"
             meta="+0.7 SINCE MID-MAY"
             chart={<MiniBars bars={AVG_GRADE} height={62} gap={8} />}
-            body="Average send grade has drifted up about V0.7 over twelve weeks - steady, not a spike, which tracks with the volume behind it. The board app can tell you what you climbed on Tuesday; it can't tell you this."
+            body="Average send grade has drifted up about V0.7 over twelve weeks - steady, not a spike, which tracks with the volume behind it. A logbook can tell you what you climbed on Tuesday; it can't tell you this."
           />
         </div>
       </div>

@@ -2,7 +2,7 @@ import { getAuth } from "@clerk/react-router/ssr.server";
 import React from "react";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
-import { BoardsAndDetails } from "../landing/components/BoardsAndDetails";
+import { Details } from "../landing/components/Details";
 import { Footer } from "../landing/components/Footer";
 import { Hero } from "../landing/components/Hero";
 import { HowItWorks } from "../landing/components/HowItWorks";
@@ -17,11 +17,11 @@ export const links: LinksFunction = () => [{ rel: "stylesheet", href: landingSty
 
 export function meta(): Array<Record<string, string>> {
   return [
-    { title: "sendtally - see what your board sessions add up to" },
+    { title: "sendtally - see what your climbing sessions add up to" },
     {
       name: "description",
       content:
-        "sendtally reads your climbing logbook out of your Aurora board account (Tension, Kilter, and more) and turns it into volume, grade pyramids, flash rate and progression - session by session, week by week. It posts each session to Strava too.",
+        "Log a climbing session in a minute - grades, sends, attempts - and sendtally turns the history into volume, grade pyramids, flash rate and progression, with an effort score for every session. It posts each session to Strava too.",
     },
   ];
 }
@@ -41,7 +41,7 @@ export default function Home(): React.ReactElement {
       <SessionBreakdown />
       <StravaSection />
       <HowItWorks />
-      <BoardsAndDetails />
+      <Details />
       <PricePanel />
       <Footer />
     </div>

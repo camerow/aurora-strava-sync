@@ -14,18 +14,16 @@ function durationLabel(startAt: string, endAt: string): string {
 const BADGES: Record<SessionBadge, { color: string; border: string }> = {
   in_progress: { color: colors.watermelonInk, border: "rgba(196,48,61,0.4)" },
   on_strava: { color: colors.azureInk, border: "rgba(27,98,206,0.4)" },
-  will_post: { color: "rgba(64,63,76,0.6)", border: "rgba(64,63,76,0.25)" },
-  not_posted: { color: colors.textFaint, border: "rgba(64,63,76,0.18)" },
 };
 
 export function SessionCard({
   session,
-  boardLabel,
+  title,
   badge,
 }: {
   session: SessionRow;
-  boardLabel: string;
-  badge: SessionBadge;
+  title: string;
+  badge: SessionBadge | null;
 }): React.ReactElement {
   const start = new Date(session.start_at);
   const dateLine = `${start
@@ -33,7 +31,7 @@ export function SessionCard({
     .toUpperCase()} ${start
     .toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
     .toUpperCase()} · ${durationLabel(session.start_at, session.end_at)}`;
-  const b = BADGES[badge];
+  const b = badge === null ? null : BADGES[badge];
 
   return (
     <View
@@ -65,22 +63,24 @@ export function SessionCard({
         >
           {dateLine}
         </Text>
-        <Text
-          style={{
-            fontFamily: fonts.monoMedium,
-            fontSize: 9,
-            letterSpacing: 0.7,
-            borderRadius: radius.pill,
-            paddingHorizontal: 8,
-            paddingVertical: 3,
-            borderWidth: 1,
-            borderColor: b.border,
-            color: b.color,
-            overflow: "hidden",
-          }}
-        >
-          {SESSION_BADGE_LABELS[badge]}
-        </Text>
+        {badge !== null && b !== null && (
+          <Text
+            style={{
+              fontFamily: fonts.monoMedium,
+              fontSize: 9,
+              letterSpacing: 0.7,
+              borderRadius: radius.pill,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderWidth: 1,
+              borderColor: b.border,
+              color: b.color,
+              overflow: "hidden",
+            }}
+          >
+            {SESSION_BADGE_LABELS[badge]}
+          </Text>
+        )}
       </View>
       <View
         style={{
@@ -91,7 +91,7 @@ export function SessionCard({
         }}
       >
         <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 16, color: colors.gunmetal }}>
-          {boardLabel}
+          {title}
         </Text>
         {session.top_grade >= 0 && (
           <Text

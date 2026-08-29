@@ -161,7 +161,7 @@
 .l-climb-head,
 .l-climb-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1fr) 62px 62px 62px 70px 92px;
+  grid-template-columns: 34px minmax(0, 1.9fr) 70px 70px 92px;
   gap: 12px;
   align-items: center;
 }
@@ -244,7 +244,7 @@
   margin: 0 auto;
 }
 
-.l-boards {
+.l-details {
   padding: clamp(40px, 7vw, 64px) clamp(20px, 5vw, 56px);
   max-width: 1440px;
   margin: 0 auto;

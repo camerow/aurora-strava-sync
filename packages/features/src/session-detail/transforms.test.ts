@@ -122,4 +122,24 @@ describe("sessionDetailVM", () => {
     const vm = sessionDetailVM({ ...detail, inProgress: false });
     expect(vm.syncLine).toBe("ON STRAVA · POSTED JUL 2");
   });
+
+  it("titles a manual session by its name and shows its location", () => {
+    const vm = sessionDetailVM({
+      ...detail,
+      source: "manual",
+      board: null,
+      name: "Tuesday board night",
+      location: "indoor",
+      strava_activity_id: null,
+      posted_at: null,
+    });
+    expect(vm.title).toContain("Tuesday board night");
+    expect(vm.meta).toContain("· INDOOR ·");
+    expect(vm.syncLine).toBe("LOGGED MANUALLY");
+  });
+
+  it("falls back to a generic title for an unnamed manual session", () => {
+    const vm = sessionDetailVM({ ...detail, source: "manual", board: null, name: null });
+    expect(vm.title).toContain("Logged session");
+  });
 });

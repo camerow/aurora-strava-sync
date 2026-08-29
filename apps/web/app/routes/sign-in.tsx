@@ -166,7 +166,7 @@ export default function SignIn(): React.ReactElement {
   if (phase.name === "code") {
     return (
       <AuthShell>
-        <StepCard step="STEP 1 OF 4 · ACCOUNT">
+        <StepCard step="STEP 1 OF 2 · ACCOUNT">
           <StepTitle>Check your inbox.</StepTitle>
           <StepBody>
             We sent a six-digit code to{" "}
@@ -226,7 +226,7 @@ export default function SignIn(): React.ReactElement {
 
   return (
     <AuthShell>
-      <StepCard step="STEP 1 OF 4 · ACCOUNT">
+      <StepCard step="STEP 1 OF 2 · ACCOUNT">
         <StepTitle>Sign in or create an account.</StepTitle>
         <StepBody>
           No password. Enter your email and we send a one-time code. New email, new account - same

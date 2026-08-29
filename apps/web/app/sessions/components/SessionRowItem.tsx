@@ -19,27 +19,18 @@ const BADGE_STYLES: Record<SessionBadge, { border: string; color: string }> = {
     border: "1px solid rgba(27,98,206,0.4)",
     color: "var(--bs-azure-ink)",
   },
-  will_post: {
-    border: "1px solid rgba(64,63,76,0.25)",
-    color: "rgba(64,63,76,0.6)",
-  },
-  not_posted: {
-    border: "1px solid rgba(64,63,76,0.18)",
-    color: "rgba(64,63,76,0.45)",
-  },
 };
 
 export function SessionRowItem({
   session,
-  boardLabel,
+  title,
   badge,
 }: {
   session: SessionRow;
-  boardLabel: string;
-  badge: SessionBadge;
+  title: string;
+  badge: SessionBadge | null;
 }): React.ReactElement {
   const start = new Date(session.start_at);
-  const badgeStyle = BADGE_STYLES[badge];
   return (
     <Link
       to={`/app/sessions/${encodeURIComponent(session.fingerprint)}`}
@@ -72,7 +63,7 @@ export function SessionRowItem({
         </span>
       </span>
       <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        <span style={{ fontWeight: 600, fontSize: 15 }}>{boardLabel}</span>
+        <span style={{ fontWeight: 600, fontSize: 15 }}>{title}</span>
         <span
           style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(64,63,76,0.55)" }}
         >
@@ -99,19 +90,23 @@ export function SessionRowItem({
           </span>
         )}
       </span>
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontWeight: 500,
-          fontSize: 10,
-          letterSpacing: "0.08em",
-          borderRadius: "var(--radius-pill)",
-          padding: "3px 9px",
-          border: badgeStyle.border,
-          color: badgeStyle.color,
-        }}
-      >
-        {SESSION_BADGE_LABELS[badge]}
+      <span>
+        {badge !== null && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontWeight: 500,
+              fontSize: 10,
+              letterSpacing: "0.08em",
+              borderRadius: "var(--radius-pill)",
+              padding: "3px 9px",
+              border: BADGE_STYLES[badge].border,
+              color: BADGE_STYLES[badge].color,
+            }}
+          >
+            {SESSION_BADGE_LABELS[badge]}
+          </span>
+        )}
       </span>
       <span
         style={{

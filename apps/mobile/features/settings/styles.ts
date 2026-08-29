@@ -31,12 +31,6 @@ export const monoMuted: TextStyle = {
   color: colors.textMuted,
 };
 
-export const boardName: TextStyle = {
-  fontFamily: fonts.sansSemiBold,
-  fontSize: 14,
-  color: colors.gunmetal,
-};
-
 export const messageText: TextStyle = {
   fontFamily: fonts.mono,
   fontSize: 11,
