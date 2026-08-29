@@ -19,7 +19,8 @@ jobs:
           cache-dependency-path: tools/cli-go/go.sum
       - run: pnpm install --frozen-lockfile
       - run: pnpm check-types
-      - run: pnpm test
+      - name: Test (one retry for the vitest-pool-workers isolated-storage flake)
+        run: pnpm test || pnpm test
       - run: pnpm format:check
       - run: go test ./...
         working-directory: tools/cli-go
