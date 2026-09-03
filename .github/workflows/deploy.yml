@@ -11,6 +11,8 @@ concurrency:
 
 env:
   DEPLOY_ENV: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+  WEB_URL: ${{ github.ref_name == 'main' && 'https://sendtally.com' || 'https://staging.sendtally.com' }}
+  API_URL: ${{ github.ref_name == 'main' && 'https://api.sendtally.com' || 'https://api-staging.sendtally.com' }}
 
 jobs:
   checks:
@@ -27,6 +29,14 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Require runtime secrets
+        working-directory: packages/sync-service
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: >
+          ../../.github/scripts/require-secrets.sh ${{ env.DEPLOY_ENV }}
+          TOKEN_KEY CLERK_SECRET_KEY STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET STRAVA_WEBHOOK_VERIFY_TOKEN
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -39,6 +49,8 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: packages/sync-service
           command: deploy --env ${{ env.DEPLOY_ENV }}
+      - name: Smoke check the deployed API
+        run: .github/scripts/smoke.sh "${{ env.API_URL }}/health"
 
   deploy-web:
     needs: checks
@@ -51,6 +63,12 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Require runtime secrets
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: ../../.github/scripts/require-secrets.sh ${{ env.DEPLOY_ENV }} CLERK_SECRET_KEY
       - run: pnpm --filter @sendtally/web build
         env:
           CLOUDFLARE_ENV: ${{ env.DEPLOY_ENV }}
@@ -60,3 +78,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/web
           command: deploy
+      - name: Smoke check the deployed site
+        run: .github/scripts/smoke.sh "${{ env.WEB_URL }}"

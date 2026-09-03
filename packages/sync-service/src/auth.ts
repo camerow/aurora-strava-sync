@@ -9,7 +9,8 @@ export async function verifyClerkUser(req: Request, env: Env): Promise<string | 
       secretKey: env.CLERK_SECRET_KEY,
     });
     return payload.sub;
-  } catch {
+  } catch (err) {
+    console.error(`clerk token rejected: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

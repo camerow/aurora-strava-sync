@@ -20,7 +20,15 @@ export const links: LinksFunction = () => [
   { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
 ];
 
-export const middleware: MiddlewareFunction<Response>[] = [clerkMiddleware()];
+export const middleware: MiddlewareFunction<Response>[] = [
+  (args, next) => {
+    const { env } = args.context.get(cloudflareContext);
+    return clerkMiddleware({
+      publishableKey: env.CLERK_PUBLISHABLE_KEY,
+      secretKey: env.CLERK_SECRET_KEY,
+    })(args, next);
+  },
+];
 
 export async function loader(
   args: LoaderFunctionArgs
