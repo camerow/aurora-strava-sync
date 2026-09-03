@@ -74,6 +74,7 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 ### Environments and deploys
 
 - Wrangler environments `staging` and `production` for `sync-service` and `web`: separate D1 databases, separate Clerk instances, secrets via `wrangler secret`.
+- **The Cloudflare account is pinned as `account_id` in both `wrangler.jsonc` files** (`7b398a51...`, the account that owns the `sendtally.com` zone). The login has access to a second, unrelated account, and without the pin wrangler can resolve to it - deploys and `secret bulk` then silently land on a shadow Worker in an account with no zone and no D1, while `tail` watches nothing and the live site never changes. Never remove the pin.
 - `staging` is the integration branch, `main` is production. All work branches off `staging` and PRs target `staging`. `main` is updated only via the `staging -> main` promotion PR, which triggers the production deploy and D1 migrations.
 - D1 migrations: `wrangler d1 migrations apply`, additive and forward-only. Never delete or rewrite prior migrations.
 - Schema source of truth is Drizzle (`packages/sync-service/src/db/schema.ts`).
