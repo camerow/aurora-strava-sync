@@ -1,1 +1,1 @@
-export const INSIGHTS_FEATURE = "long-term-insights";
+export const INSIGHTS_FEATURE = "long_term_insights";
