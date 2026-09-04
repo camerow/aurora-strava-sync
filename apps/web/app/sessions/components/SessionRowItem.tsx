@@ -1,7 +1,11 @@
 import React from "react";
 import { Link } from "react-router";
 import type { SessionRow } from "@sendtally/api-client";
-import { SESSION_BADGE_LABELS, type SessionBadge } from "@sendtally/features/sessions";
+import {
+  SESSION_BADGE_LABELS,
+  sessionGradeLabels,
+  type SessionBadge,
+} from "@sendtally/features/sessions";
 
 function durationLabel(startAt: string, endAt: string): string {
   const minutes = Math.max(0, Math.round((Date.parse(endAt) - Date.parse(startAt)) / 60_000));
@@ -76,19 +80,20 @@ export function SessionRowItem({
         >
           {session.climb_count} climbs
         </span>
-        {session.top_grade >= 0 && (
+        {sessionGradeLabels(session).map((g) => (
           <span
+            key={g.kind}
             style={{
               fontFamily: "var(--font-mono)",
-              fontWeight: 600,
+              fontWeight: g.kind === "sent" ? 600 : 500,
               fontSize: 12,
-              color: "var(--text-label-accent)",
+              color: g.kind === "sent" ? "var(--text-label-accent)" : "rgba(64,63,76,0.55)",
               letterSpacing: "0.04em",
             }}
           >
-            TOP V{session.top_grade}
+            {g.label}
           </span>
-        )}
+        ))}
       </span>
       <span>
         {badge !== null && (

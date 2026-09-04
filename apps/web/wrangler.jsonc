@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sendtally-web",
+  "account_id": "7b398a51337874fb6b7ceb188e5961e9",
   "main": "workers/app.ts",
   "compatibility_date": "2025-10-11",
   "compatibility_flags": ["nodejs_compat"],

@@ -532,7 +532,7 @@ export function LogSessionForm(): React.ReactElement {
             alignItems: "center",
             justifyContent: "center",
             borderRadius: radius.control,
-            backgroundColor: colors.watermelonInk,
+            backgroundColor: colors.azureInk,
             opacity: saving ? 0.45 : 1,
           }}
         >

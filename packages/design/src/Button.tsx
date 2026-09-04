@@ -28,20 +28,15 @@ type Variant = {
 };
 
 const variants: Record<string, Variant> = {
-  primary: {
-    background: "var(--bs-watermelon-ink)",
-    color: "var(--bs-white)",
-    hover: "var(--bs-watermelon-ink-press)",
+  gold: {
+    background: "var(--bs-gold)",
+    color: "var(--bs-gunmetal)",
+    hover: "var(--bs-gold-hover)",
   },
   azure: {
     background: "var(--bs-azure-ink)",
     color: "var(--bs-white)",
     hover: "var(--bs-azure-ink-press)",
-  },
-  gold: {
-    background: "var(--bs-gold)",
-    color: "var(--bs-gunmetal)",
-    hover: "var(--bs-gold-hover)",
   },
   ghostOnDark: {
     background: "transparent",
@@ -49,10 +44,15 @@ const variants: Record<string, Variant> = {
     hover: "transparent",
     border: "1px solid var(--line-on-dark)",
   },
+  danger: {
+    background: "var(--bs-watermelon-ink)",
+    color: "var(--bs-white)",
+    hover: "var(--bs-watermelon-ink-press)",
+  },
 };
 
 export type ButtonProps = {
-  variant?: "primary" | "azure" | "gold" | "ghostOnDark";
+  variant?: "gold" | "azure" | "ghostOnDark" | "danger";
   size?: "md" | "sm";
   href?: string;
   disabled?: boolean;
@@ -61,7 +61,7 @@ export type ButtonProps = {
 } & Omit<React.HTMLAttributes<HTMLElement>, "style">;
 
 export function Button({
-  variant = "primary",
+  variant = "gold",
   size = "md",
   href,
   disabled = false,
@@ -69,7 +69,7 @@ export function Button({
   style,
   ...rest
 }: ButtonProps): React.ReactElement {
-  const v = variants[variant] ?? variants["primary"]!;
+  const v = variants[variant] ?? variants["gold"]!;
   const [hover, setHover] = React.useState(false);
   const css: React.CSSProperties = {
     ...base,

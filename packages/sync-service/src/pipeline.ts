@@ -211,6 +211,7 @@ async function syncOneBoard(
       end_at: s.sess.end.toISOString(),
       climb_count: s.sess.climbs.length,
       top_grade: topGrade(s.sess),
+      top_send_grade: topSendGrade(s.sess),
       rpe: s.result.rpe,
       title: s.result.title,
       summary: s.result.summary,
@@ -337,6 +338,14 @@ function topGrade(s: Session): number {
   let hi = -1;
   for (const c of s.climbs) {
     if (c.vGrade > hi) hi = c.vGrade;
+  }
+  return hi;
+}
+
+function topSendGrade(s: Session): number {
+  let hi = -1;
+  for (const c of s.climbs) {
+    if (c.kind === "send" && c.vGrade > hi) hi = c.vGrade;
   }
   return hi;
 }

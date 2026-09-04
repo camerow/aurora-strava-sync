@@ -54,6 +54,7 @@ export const sessions = sqliteTable(
     end_at: text("end_at").notNull(),
     climb_count: integer("climb_count").notNull(),
     top_grade: integer("top_grade").notNull(),
+    top_send_grade: integer("top_send_grade").notNull().default(-1),
     rpe: integer("rpe").notNull(),
     title: text("title").notNull(),
     summary: text("summary").notNull(),

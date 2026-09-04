@@ -7,7 +7,9 @@ import { requireApi } from "../lib/api.server";
 import { useClientApi } from "../lib/useClientApi";
 import { SettingsView } from "../settings/components/SettingsView";
 
-export async function loader(args: LoaderFunctionArgs): Promise<{ apiUrl: string }> {
+type LoaderData = { apiUrl: string };
+
+export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
   await requireApi(args);
   return { apiUrl: args.context.get(cloudflareContext).env.API_URL };
 }

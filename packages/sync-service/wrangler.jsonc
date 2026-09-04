@@ -1,108 +1,58 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "sendtally-sync-service",
-	"main": "src/index.ts",
-	"compatibility_date": "2025-10-11",
-	"observability": {
-		"enabled": true
-	},
-	"triggers": {
-		"crons": [
-			"0 * * * *",
-			"0 4 * * *"
-		]
-	},
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "sendtally-production",
-			"database_id": "3530133c-2f98-4054-9a95-9ae13d661a66",
-			"migrations_dir": "migrations",
-		},
-	],
-	"queues": {
-		"producers": [
-			{
-				"binding": "SYNC_QUEUE",
-				"queue": "sendtally-sync-production"
-			}
-		],
-		"consumers": [
-			{
-				"queue": "sendtally-sync",
-				"max_retries": 5
-			}
-		],
-	},
-	"vars": {
-		"WEB_APP_URL": "http://localhost:5173",
-	},
-	"env": {
-		"staging": {
-			"routes": [
-				{
-					"pattern": "api-staging.sendtally.com",
-					"custom_domain": true
-				}
-			],
-			"d1_databases": [
-				{
-					"binding": "DB",
-					"database_name": "sendtally-staging",
-					"database_id": "f51cbd26-d1ac-4455-9fe1-f0c273bec4c2",
-					"migrations_dir": "migrations",
-				},
-			],
-			"queues": {
-				"producers": [
-					{
-						"binding": "SYNC_QUEUE",
-						"queue": "sendtally-sync-staging"
-					}
-				],
-				"consumers": [
-					{
-						"queue": "sendtally-sync-staging",
-						"max_retries": 5
-					}
-				],
-			},
-			"vars": {
-				"WEB_APP_URL": "https://staging.sendtally.com"
-			},
-		},
-		"production": {
-			"routes": [
-				{
-					"pattern": "api.sendtally.com",
-					"custom_domain": true
-				}
-			],
-			"d1_databases": [
-				{
-					"binding": "DB",
-					"database_name": "sendtally-production",
-					"database_id": "3530133c-2f98-4054-9a95-9ae13d661a66",
-					"migrations_dir": "migrations",
-				},
-			],
-			"queues": {
-				"producers": [
-					{
-						"binding": "SYNC_QUEUE",
-						"queue": "sendtally-sync-production"
-					}
-				],
-				"consumers": [
-					{
-						"queue": "sendtally-sync-production",
-						"max_retries": 5
-					}
-				],
-			},
-			"vars": {
-				"WEB_APP_URL": "https://sendtally.com"
-			},
-		},
-	},
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sendtally-sync-service",
+  "account_id": "7b398a51337874fb6b7ceb188e5961e9",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-11",
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["0 * * * *", "0 4 * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sendtally-dev",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "queues": {
+    "producers": [{ "binding": "SYNC_QUEUE", "queue": "sendtally-sync" }],
+    "consumers": [{ "queue": "sendtally-sync", "max_retries": 5 }],
+  },
+  "vars": {
+    "WEB_APP_URL": "http://localhost:5173",
+  },
+  "env": {
+    "staging": {
+      "routes": [{ "pattern": "api-staging.sendtally.com", "custom_domain": true }],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "sendtally-staging",
+          "database_id": "f51cbd26-d1ac-4455-9fe1-f0c273bec4c2",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "queues": {
+        "producers": [{ "binding": "SYNC_QUEUE", "queue": "sendtally-sync-staging" }],
+        "consumers": [{ "queue": "sendtally-sync-staging", "max_retries": 5 }],
+      },
+      "vars": { "WEB_APP_URL": "https://staging.sendtally.com" },
+    },
+    "production": {
+      "routes": [{ "pattern": "api.sendtally.com", "custom_domain": true }],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "sendtally-production",
+          "database_id": "3530133c-2f98-4054-9a95-9ae13d661a66",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "queues": {
+        "producers": [{ "binding": "SYNC_QUEUE", "queue": "sendtally-sync-production" }],
+        "consumers": [{ "queue": "sendtally-sync-production", "max_retries": 5 }],
+      },
+      "vars": { "WEB_APP_URL": "https://sendtally.com" },
+    },
+  },
 }

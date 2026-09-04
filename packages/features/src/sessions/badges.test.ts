@@ -14,6 +14,7 @@ function session(overrides: Partial<SessionRow> = {}): SessionRow {
     end_at: "2026-08-08T19:00:00.000Z",
     climb_count: 3,
     top_grade: 6,
+    top_send_grade: 6,
     rpe: 7,
     title: "T",
     strava_activity_id: null,

@@ -7,10 +7,11 @@ export function Nav(): React.ReactElement {
       <Logo tone="on-light" size={24} />
       <div className="l-nav-links">
         {[
-          ["What you see", "#insights"],
+          ["What members see", "#insights"],
           ["Sessions", "#session"],
           ["Strava", "#strava"],
           ["How it works", "#how"],
+          ["Membership", "#price"],
         ].map(([label, href]) => (
           <a key={label} href={href} className="l-nav-anchor">
             {label}
