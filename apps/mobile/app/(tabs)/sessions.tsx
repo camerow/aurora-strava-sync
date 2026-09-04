@@ -3,9 +3,15 @@ import React from "react";
 import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { SessionRow } from "@sendtally/api-client";
-import { sessionBadge, sessionTitle } from "@sendtally/features/sessions";
+import {
+  resolveSessionMonth,
+  sessionBadge,
+  sessionMonths,
+  sessionTitle,
+} from "@sendtally/features/sessions";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 import { Logo } from "../../components/Logo";
+import { MonthPicker } from "../../features/sessions/MonthPicker";
 import { SessionCard } from "../../features/sessions/SessionCard";
 import { useApi } from "../../lib/api";
 
@@ -14,6 +20,9 @@ export default function Sessions(): React.ReactElement {
   const [sessions, setSessions] = React.useState<SessionRow[] | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [monthKey, setMonthKey] = React.useState<string | null>(null);
+  const months = React.useMemo(() => sessionMonths(sessions ?? []), [sessions]);
+  const selected = resolveSessionMonth(months, monthKey);
 
   const load = React.useCallback(async (): Promise<void> => {
     try {
@@ -37,7 +46,7 @@ export default function Sessions(): React.ReactElement {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>
       <FlatList
-        data={sessions ?? []}
+        data={selected?.sessions ?? []}
         keyExtractor={(s) => s.fingerprint}
         contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24, gap: 9 }}
         refreshControl={
@@ -95,6 +104,11 @@ export default function Sessions(): React.ReactElement {
               <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.watermelonInk }}>
                 {error}
               </Text>
+            )}
+            {selected !== null && (
+              <View style={{ paddingTop: 8, paddingBottom: 4 }}>
+                <MonthPicker months={months} selected={selected} onSelect={setMonthKey} />
+              </View>
             )}
           </View>
         }
