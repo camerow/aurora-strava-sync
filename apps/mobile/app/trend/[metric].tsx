@@ -7,10 +7,45 @@ import { colors, fonts, radius } from "@sendtally/design/tokens";
 import { TrendBars } from "../../features/trends/TrendBars";
 import { TrendFilters } from "../../features/trends/TrendFilters";
 import { useApi } from "../../lib/api";
+import { INSIGHTS_FEATURE, useHasFeature } from "../../lib/billing";
+import { UpgradeCard } from "../../features/billing/UpgradeCard";
 
 const METRICS: TrendMetric[] = ["volume", "pyramid", "hardest", "flash", "avggrade"];
 
 export default function TrendDetailScreen(): React.ReactElement {
+  const canSeeInsights = useHasFeature(INSIGHTS_FEATURE);
+  return canSeeInsights ? <TrendDetail /> : <TrendDetailLocked />;
+}
+
+function TrendDetailLocked(): React.ReactElement {
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 12, gap: 12 }}>
+        <Pressable
+          onPress={() => router.back()}
+          style={{ minHeight: 44, justifyContent: "center" }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.monoMedium,
+              fontSize: 12,
+              letterSpacing: 0.5,
+              color: colors.watermelonInk,
+            }}
+          >
+            ← TRENDS
+          </Text>
+        </Pressable>
+        <UpgradeCard
+          title="This one is for members."
+          body="Membership unlocks volume, RPE, average send grade and flash rate across your whole history."
+        />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function TrendDetail(): React.ReactElement {
   const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
   const api = useApi();
   const feature = useTrends(api);

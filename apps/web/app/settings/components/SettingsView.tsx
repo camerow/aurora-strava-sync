@@ -5,6 +5,7 @@ import { azureButton, bodyText, linkAction, monoMuted, sectionLabel } from "./st
 
 export type SettingsViewProps = {
   vm: SettingsVM;
+  canSyncStrava: boolean;
 };
 
 function Section({ children }: { children: React.ReactNode }): React.ReactElement {
@@ -25,7 +26,7 @@ function Section({ children }: { children: React.ReactNode }): React.ReactElemen
   );
 }
 
-export function SettingsView({ vm }: SettingsViewProps): React.ReactElement {
+export function SettingsView({ vm, canSyncStrava }: SettingsViewProps): React.ReactElement {
   return (
     <div style={{ maxWidth: 640, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -56,15 +57,26 @@ export function SettingsView({ vm }: SettingsViewProps): React.ReactElement {
         >
           <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ fontWeight: 600, fontSize: 13 }}>Strava</span>
-            <span style={monoMuted}>{vm.stravaStatusLabel}</span>
+            <span style={monoMuted}>{canSyncStrava ? vm.stravaStatusLabel : "MEMBERS ONLY"}</span>
           </span>
-          {vm.stravaConnected && (
+          {canSyncStrava && vm.stravaConnected && (
             <Link to="/app/setup" style={linkAction}>
               Re-link
             </Link>
           )}
         </div>
-        {!vm.stravaConnected && (
+        {!canSyncStrava && (
+          <>
+            <p style={bodyText}>
+              Strava sync is part of membership. Each logged session posts to your feed as a Rock
+              Climbing activity, so board training counts toward your training load.
+            </p>
+            <Link to="/app/membership" style={{ ...azureButton, textDecoration: "none" }}>
+              See membership
+            </Link>
+          </>
+        )}
+        {canSyncStrava && !vm.stravaConnected && (
           <>
             <p style={bodyText}>
               Connect Strava and your logged sessions can post to your feed as Rock Climbing
@@ -75,7 +87,7 @@ export function SettingsView({ vm }: SettingsViewProps): React.ReactElement {
             </Link>
           </>
         )}
-        {vm.stravaConnected && !vm.stravaActive && (
+        {canSyncStrava && vm.stravaConnected && !vm.stravaActive && (
           <p style={bodyText}>
             Strava access has lapsed. Re-link it to start posting your sessions again.
           </p>

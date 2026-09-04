@@ -2,10 +2,13 @@ import React from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, redirect } from "react-router";
 import { AuthShell, StepBody, StepCard, StepTitle } from "../auth/components/AuthShell";
+import { STRAVA_SYNC_FEATURE } from "../billing/features";
 import { requireApi } from "../lib/api.server";
+import { requireFeature } from "../lib/billing.server";
 
 export async function loader(args: LoaderFunctionArgs): Promise<null> {
   const api = await requireApi(args);
+  await requireFeature(args, STRAVA_SYNC_FEATURE);
   const status = await api.status();
   if (status.strava?.status === "active") throw redirect("/app");
   return null;
@@ -13,6 +16,7 @@ export async function loader(args: LoaderFunctionArgs): Promise<null> {
 
 export async function action(args: ActionFunctionArgs): Promise<Response> {
   const api = await requireApi(args);
+  await requireFeature(args, STRAVA_SYNC_FEATURE);
   const { url } = await api.stravaAuthorizeUrl();
   return redirect(url);
 }

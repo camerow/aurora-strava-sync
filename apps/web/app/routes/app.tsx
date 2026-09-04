@@ -17,6 +17,7 @@ const NAV_ITEMS: Array<[string, string]> = [
   ["Sessions", "/app"],
   ["Trends", "/app/trends"],
   ["Settings", "/app/settings"],
+  ["Membership", "/app/membership"],
 ];
 
 export default function AppLayout(): React.ReactElement {
