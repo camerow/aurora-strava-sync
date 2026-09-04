@@ -45,6 +45,7 @@ export type SessionRow = {
   end_at: string;
   climb_count: number;
   top_grade: number;
+  top_send_grade: number;
   rpe: number;
   title: string;
   strava_activity_id: number | null;

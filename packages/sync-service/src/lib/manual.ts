@@ -115,6 +115,10 @@ export function buildManualSession(
   const session = toSession(body);
   const result = score(session, history, defaultEffortConfig(), body.rpe);
   const topGrade = session.climbs.reduce((hi, c) => (c.vGrade > hi ? c.vGrade : hi), -1);
+  const topSendGrade = session.climbs.reduce(
+    (hi, c) => (c.kind === "send" && c.vGrade > hi ? c.vGrade : hi),
+    -1
+  );
   return {
     fingerprint,
     location: body.location,
@@ -123,6 +127,7 @@ export function buildManualSession(
     end_at: session.end.toISOString(),
     climb_count: session.climbs.length,
     top_grade: topGrade,
+    top_send_grade: topSendGrade,
     rpe: result.rpe,
     title: body.name ?? result.title,
     summary: result.summary,

@@ -12,6 +12,7 @@ const detail: SessionDetail = {
   end_at: "2026-07-01T19:25:00.000Z",
   climb_count: 4,
   top_grade: 7,
+  top_send_grade: 7,
   rpe: 7,
   title: "Solid climbing session · 4 climbs, top V7",
   strava_activity_id: 555,
