@@ -496,6 +496,7 @@ describe("app", () => {
       end_at: string;
       climb_count: number;
       top_grade: number;
+      top_send_grade: number;
       rpe: number;
       title: string;
       inProgress: boolean;
@@ -525,6 +526,7 @@ describe("app", () => {
     expect(session.end_at).toBe("2026-08-20T20:00:00.000Z");
     expect(session.climb_count).toBe(3);
     expect(session.top_grade).toBe(6);
+    expect(session.top_send_grade).toBe(5);
     expect(session.rpe).toBeGreaterThanOrEqual(1);
     expect(session.rpe).toBeLessThanOrEqual(10);
     expect(session.inProgress).toBe(false);

@@ -1,7 +1,11 @@
 import React from "react";
 import { Text, View } from "react-native";
 import type { SessionRow } from "@sendtally/api-client";
-import { SESSION_BADGE_LABELS, type SessionBadge } from "@sendtally/features/sessions";
+import {
+  SESSION_BADGE_LABELS,
+  sessionGradeLabels,
+  type SessionBadge,
+} from "@sendtally/features/sessions";
 import { colors, fonts, radius } from "@sendtally/design/tokens";
 
 function durationLabel(startAt: string, endAt: string): string {
@@ -93,18 +97,21 @@ export function SessionCard({
         <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 16, color: colors.gunmetal }}>
           {title}
         </Text>
-        {session.top_grade >= 0 && (
-          <Text
-            style={{
-              fontFamily: fonts.monoSemiBold,
-              fontSize: 12,
-              letterSpacing: 0.5,
-              color: colors.watermelonInk,
-            }}
-          >
-            TOP V{session.top_grade}
-          </Text>
-        )}
+        <View style={{ flexDirection: "row", gap: 10, flexShrink: 0 }}>
+          {sessionGradeLabels(session).map((g) => (
+            <Text
+              key={g.kind}
+              style={{
+                fontFamily: g.kind === "sent" ? fonts.monoSemiBold : fonts.monoMedium,
+                fontSize: 12,
+                letterSpacing: 0.5,
+                color: g.kind === "sent" ? colors.watermelonInk : colors.textMuted,
+              }}
+            >
+              {g.label}
+            </Text>
+          ))}
+        </View>
       </View>
       <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.textSecondary }}>
         {session.climb_count} CLIMBS · RPE {session.rpe}/10

@@ -19,6 +19,7 @@ function session(fingerprint: string, startAt: string): SessionRow {
     end_at: startAt,
     climb_count: 3,
     top_grade: 6,
+    top_send_grade: 6,
     rpe: 7,
     title: "T",
     strava_activity_id: null,

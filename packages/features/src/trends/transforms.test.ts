@@ -19,6 +19,7 @@ function session(
     end_at: startIso,
     climb_count: climbs.length,
     top_grade: Math.max(...climbs.map((c) => c.vGrade)),
+    top_send_grade: Math.max(...climbs.filter((c) => c.kind === "send").map((c) => c.vGrade), -1),
     rpe: 6,
     title: "",
     strava_activity_id: null,
