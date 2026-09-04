@@ -1,9 +1,11 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { defaultSessionConfig, isInProgress } from "@sendtally/core";
 import { z } from "zod";
+import type { AuthedUser } from "./auth";
 import type { Env } from "./bindings";
+import { STRAVA_SYNC_FEATURE } from "./features";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
 import { decryptSecret, encryptSecret } from "./lib/crypto";
 import { buildManualSession, historySession, manualSessionBody } from "./lib/manual";
@@ -17,12 +19,14 @@ import {
 import { wallClockNow } from "./lib/time";
 
 export type AppDeps = {
-  verifyUser: (req: Request, env: Env) => Promise<string | null>;
+  verifyUser: (req: Request, env: Env) => Promise<AuthedUser | null>;
   deleteAuthUser: (userId: string, env: Env) => Promise<void>;
   fetchImpl?: typeof fetch;
 };
 
-type Vars = { userId: string };
+type Vars = { userId: string; hasFeature: (feature: string) => boolean };
+
+type AppEnv = { Bindings: Env; Variables: Vars };
 
 const connectBoardBody = z.object({
   board: z.enum(BOARDS as [string, ...string[]]),
@@ -46,9 +50,9 @@ const syncScheduleBody = z.object({
 
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 
-export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars }> {
+export function createApp(deps: AppDeps): Hono<AppEnv> {
   const fetchImpl: typeof fetch = deps.fetchImpl ?? ((input, init) => fetch(input, init));
-  const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+  const app = new Hono<AppEnv>();
 
   app.get("/health", (c) => c.json({ ok: true }));
 
@@ -131,11 +135,20 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     })(c, next)
   );
   app.use("/v1/*", async (c, next) => {
-    const userId = await deps.verifyUser(c.req.raw, c.env);
-    if (userId === null) return c.json({ error: "unauthorized" }, 401);
-    c.set("userId", userId);
+    const user = await deps.verifyUser(c.req.raw, c.env);
+    if (user === null) return c.json({ error: "unauthorized" }, 401);
+    c.set("userId", user.userId);
+    c.set("hasFeature", user.hasFeature);
     await next();
   });
+
+  const requireFeature = (feature: string): MiddlewareHandler<AppEnv> =>
+    async function gate(c, next) {
+      if (!c.get("hasFeature")(feature)) {
+        return c.json({ error: "membership required", feature }, 402);
+      }
+      await next();
+    };
 
   app.post("/v1/connect/board", async (c) => {
     const parsed = connectBoardBody.safeParse(await c.req.json().catch(() => null));
@@ -167,7 +180,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     return c.json({ board, boardUserId: session.userId });
   });
 
-  app.get("/v1/connect/strava/start", async (c) => {
+  app.get("/v1/connect/strava/start", requireFeature(STRAVA_SYNC_FEATURE), async (c) => {
     const userId = c.get("userId");
     const nonce = crypto.randomUUID();
     setCookie(c, "st_oauth", nonce, {
@@ -316,7 +329,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     });
   });
 
-  app.post("/v1/strava/posting", async (c) => {
+  app.post("/v1/strava/posting", requireFeature(STRAVA_SYNC_FEATURE), async (c) => {
     const parsed = stravaPostingBody.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
     const userId = c.get("userId");

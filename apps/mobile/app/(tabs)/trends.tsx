@@ -1,18 +1,15 @@
-import { router } from "expo-router";
 import React from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTrends } from "@sendtally/features/trends";
-import { colors, fonts, radius } from "@sendtally/design/tokens";
+import { colors, fonts } from "@sendtally/design/tokens";
+import { Text } from "react-native";
 import { Logo } from "../../components/Logo";
-import { TrendBars } from "../../features/trends/TrendBars";
-import { TrendFilters } from "../../features/trends/TrendFilters";
-import { useApi } from "../../lib/api";
+import { UpgradeCard } from "../../features/billing/UpgradeCard";
+import { TrendsList } from "../../features/trends/TrendsList";
+import { INSIGHTS_FEATURE, useHasFeature } from "../../lib/billing";
 
 export default function Trends(): React.ReactElement {
-  const api = useApi();
-  const feature = useTrends(api);
-  const { state } = feature;
+  const canSeeInsights = useHasFeature(INSIGHTS_FEATURE);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>
@@ -25,105 +22,32 @@ export default function Trends(): React.ReactElement {
         }}
       >
         <Logo size={18} />
-        <View style={{ gap: 4 }}>
-          <Text
-            style={{
-              fontFamily: fonts.display,
-              fontSize: 32,
-              letterSpacing: -1,
-              color: colors.gunmetal,
-            }}
-          >
-            Trends
-          </Text>
-          {state.status === "ready" && (
+        {canSeeInsights ? (
+          <TrendsList />
+        ) : (
+          <View style={{ gap: 14 }}>
             <Text
               style={{
-                fontFamily: fonts.monoMedium,
-                fontSize: 10,
-                letterSpacing: 0.8,
-                color: colors.textMuted,
+                fontFamily: fonts.display,
+                fontSize: 32,
+                letterSpacing: -1,
+                color: colors.gunmetal,
               }}
             >
-              {state.data.caption}
+              Trends
             </Text>
-          )}
-        </View>
-        <TrendFilters feature={feature} />
-        {state.status === "loading" && <ActivityIndicator color={colors.gunmetal} />}
-        {state.status === "error" && (
-          <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.watermelonInk }}>
-            Could not load trends. Pull to retry.
-          </Text>
+            <UpgradeCard
+              title="Your sessions are adding up to something."
+              body="Logging stays free. Membership unlocks the screens that read your whole history back to you."
+              points={[
+                "Volume - how much you actually climbed, week by week",
+                "RPE - how hard your sessions have been feeling",
+                "Average send grade - the drift a logbook never shows",
+                "Flash rate - the first thing to move when your reading improves",
+              ]}
+            />
+          </View>
         )}
-        {state.status === "ready" &&
-          state.data.tiles.map((t) => (
-            <Pressable
-              key={t.metric}
-              onPress={() => router.push(`/trend/${t.metric}`)}
-              style={{
-                backgroundColor: colors.white,
-                borderWidth: 1,
-                borderColor: colors.lineOnLightSoft,
-                borderRadius: radius.card,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                gap: 8,
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: fonts.monoMedium,
-                    fontSize: 10,
-                    letterSpacing: 0.7,
-                    color: colors.watermelonInk,
-                  }}
-                >
-                  {t.label}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: fonts.monoMedium,
-                    fontSize: 9,
-                    letterSpacing: 0.7,
-                    color: colors.textSecondary,
-                  }}
-                >
-                  DETAILS →
-                </Text>
-              </View>
-              <Text
-                style={{
-                  fontFamily: fonts.display,
-                  fontSize: 26,
-                  letterSpacing: -0.5,
-                  color: colors.gunmetal,
-                }}
-              >
-                {t.value}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.monoMedium,
-                  fontSize: 10,
-                  letterSpacing: 0.5,
-                  color: colors.textSecondary,
-                }}
-              >
-                {t.caption}
-              </Text>
-              <View style={{ marginTop: 2 }}>
-                <TrendBars bars={t.bars} height={38} />
-              </View>
-            </Pressable>
-          ))}
       </ScrollView>
     </SafeAreaView>
   );
