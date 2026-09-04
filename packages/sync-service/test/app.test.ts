@@ -6,9 +6,10 @@ import { decryptSecret, encryptSecret } from "../src/lib/crypto";
 import { wallClockNow } from "../src/lib/time";
 import { jsonResponse, makeFakeFetch } from "./fakes";
 
-function testApp(fetchImpl?: typeof fetch) {
+function testApp(fetchImpl?: typeof fetch, deleteAuthUser?: (userId: string) => Promise<void>) {
   return createApp({
     verifyUser: async (req) => req.headers.get("x-test-user"),
+    deleteAuthUser: deleteAuthUser ?? (async () => {}),
     ...(fetchImpl === undefined ? {} : { fetchImpl }),
   });
 }
@@ -715,5 +716,144 @@ describe("app", () => {
       .bind(userId)
       .first<{ n: number }>();
     expect(row?.n).toBe(0);
+  });
+
+  it("deletes the account: revokes Strava, clears D1 rows, removes the Clerk user", async () => {
+    const userId = "user_delete_account";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
+       VALUES (?, 'tension', 7, 'tok', 'active', NULL, '')`
+    )
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
+       VALUES (?, 999, ?, ?, ?, 'active', '')`
+    )
+      .bind(
+        userId,
+        await encryptSecret("access-tok", env.TOKEN_KEY),
+        await encryptSecret("refresh-tok", env.TOKEN_KEY),
+        Math.floor(Date.now() / 1000) + 3600
+      )
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO sync_state (user_id, last_synced_at, last_error) VALUES (?, '', NULL)`
+    )
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO sessions (user_id, fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json)
+       VALUES (?, 'fp_x', 'tension', '2025-01-01T00:00:00Z', '2025-01-01T01:00:00Z', 3, 5, 6, 't', 's', '[]')`
+    )
+      .bind(userId)
+      .run();
+
+    const { fetchImpl, calls } = makeFakeFetch([
+      {
+        match: (url, method) => url.endsWith("/oauth/deauthorize") && method === "POST",
+        respond: () => jsonResponse(200, { access_token: "access-tok" }),
+      },
+    ]);
+    const deleted: string[] = [];
+
+    const res = await testApp(fetchImpl, async (id) => void deleted.push(id)).request(
+      "/v1/account",
+      { method: "DELETE", headers: { "x-test-user": userId } },
+      env
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: true });
+    expect(deleted).toEqual([userId]);
+
+    const deauth = calls.find((c) => c.url.endsWith("/oauth/deauthorize"));
+    expect(deauth?.headers["authorization"]).toBe("Bearer access-tok");
+
+    for (const table of [
+      "users",
+      "board_connections",
+      "strava_connections",
+      "sync_state",
+      "sessions",
+    ]) {
+      const column = table === "users" ? "id" : "user_id";
+      const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} = ?`)
+        .bind(userId)
+        .first<{ n: number }>();
+      expect(`${table}:${row?.n}`).toBe(`${table}:0`);
+    }
+  });
+
+  it("deletes the account of a user who never connected Strava", async () => {
+    const userId = "user_delete_no_strava";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+
+    const res = await testApp().request(
+      "/v1/account",
+      { method: "DELETE", headers: { "x-test-user": userId } },
+      env
+    );
+    expect(res.status).toBe(200);
+
+    const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE id = ?`)
+      .bind(userId)
+      .first<{ n: number }>();
+    expect(row?.n).toBe(0);
+  });
+
+  it("still clears D1 rows when Strava rejects the deauthorization", async () => {
+    const userId = "user_delete_strava_fails";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
+       VALUES (?, 1001, ?, ?, ?, 'active', '')`
+    )
+      .bind(
+        userId,
+        await encryptSecret("access-tok", env.TOKEN_KEY),
+        await encryptSecret("refresh-tok", env.TOKEN_KEY),
+        Math.floor(Date.now() / 1000) + 3600
+      )
+      .run();
+
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/oauth/deauthorize"),
+        respond: () => jsonResponse(401, {}),
+      },
+    ]);
+
+    const res = await testApp(fetchImpl).request(
+      "/v1/account",
+      { method: "DELETE", headers: { "x-test-user": userId } },
+      env
+    );
+    expect(res.status).toBe(200);
+
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM strava_connections WHERE user_id = ?`
+    )
+      .bind(userId)
+      .first<{ n: number }>();
+    expect(row?.n).toBe(0);
+  });
+
+  it("reports 502 when the auth user cannot be removed", async () => {
+    const userId = "user_delete_clerk_fails";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+
+    const res = await testApp(undefined, async () => {
+      throw new Error("clerk down");
+    }).request("/v1/account", { method: "DELETE", headers: { "x-test-user": userId } }, env);
+    expect(res.status).toBe(502);
   });
 });

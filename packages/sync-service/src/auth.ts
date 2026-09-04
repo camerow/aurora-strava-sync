@@ -1,4 +1,4 @@
-import { verifyToken } from "@clerk/backend";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 import type { Env } from "./bindings";
 
 export async function verifyClerkUser(req: Request, env: Env): Promise<string | null> {
@@ -13,4 +13,8 @@ export async function verifyClerkUser(req: Request, env: Env): Promise<string | 
     console.error(`clerk token rejected: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
+}
+
+export async function deleteClerkUser(userId: string, env: Env): Promise<void> {
+  await createClerkClient({ secretKey: env.CLERK_SECRET_KEY }).users.deleteUser(userId);
 }

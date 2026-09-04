@@ -152,6 +152,17 @@ export class StravaClient {
     return out.id;
   }
 
+  async deauthorize(): Promise<void> {
+    await this.ensureFresh();
+    const resp = await this.fetchImpl(`${this.oauthBase}/deauthorize`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.tokens.accessToken}` },
+    });
+    if (resp.status === 429) throw new StravaRateLimitedError("strava rate limit hit");
+    if (resp.status === 401) throw new StravaUnauthorizedError("strava token rejected");
+    if (resp.status !== 200) throw new Error(`strava deauthorize failed: HTTP ${resp.status}`);
+  }
+
   async setPerceivedExertion(activityId: number, rpe: number): Promise<void> {
     await this.ensureFresh();
     const resp = await this.fetchImpl(`${this.apiBase}/activities/${activityId}`, {

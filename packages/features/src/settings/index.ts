@@ -1,3 +1,4 @@
-export { settingsVM } from "./transforms";
+export { DELETE_CONFIRMATION_WORD, deleteConfirmationMatches, settingsVM } from "./transforms";
 export { useSettings, type SettingsFeature } from "./useSettings";
-export type { SettingsVM } from "./types";
+export { useDeleteAccount, type DeleteAccountFeature } from "./useDeleteAccount";
+export type { DeleteAccountStatus, SettingsVM } from "./types";

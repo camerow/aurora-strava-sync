@@ -65,3 +65,16 @@ export const messageText: React.CSSProperties = {
   fontSize: 11,
   color: "rgba(64,63,76,0.6)",
 };
+
+export const dangerButton: React.CSSProperties = {
+  fontFamily: "var(--font-sans)",
+  fontWeight: 600,
+  fontSize: 14,
+  color: "var(--bs-white)",
+  background: "var(--bs-watermelon-ink)",
+  border: "none",
+  borderRadius: "var(--radius-control)",
+  padding: "12px 18px",
+  cursor: "pointer",
+  alignSelf: "flex-start",
+};

@@ -8,11 +8,17 @@ import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "
 import { decryptSecret, encryptSecret } from "./lib/crypto";
 import { buildManualSession, historySession, manualSessionBody } from "./lib/manual";
 import * as repo from "./lib/repo";
-import { authorizeUrl, exchangeAuthCode, StravaUnauthorizedError } from "./lib/strava";
+import {
+  authorizeUrl,
+  exchangeAuthCode,
+  StravaClient,
+  StravaUnauthorizedError,
+} from "./lib/strava";
 import { wallClockNow } from "./lib/time";
 
 export type AppDeps = {
   verifyUser: (req: Request, env: Env) => Promise<string | null>;
+  deleteAuthUser: (userId: string, env: Env) => Promise<void>;
   fetchImpl?: typeof fetch;
 };
 
@@ -345,6 +351,39 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       board === undefined ? { kind: "user", userId } : { kind: "user", userId, board }
     );
     return c.json({ queued: true });
+  });
+
+  app.delete("/v1/account", async (c) => {
+    const userId = c.get("userId");
+    const strava = await repo.getStravaConnection(c.env.DB, userId);
+    if (strava !== null) {
+      const client = new StravaClient(
+        { clientId: c.env.STRAVA_CLIENT_ID, clientSecret: c.env.STRAVA_CLIENT_SECRET },
+        {
+          accessToken: await decryptSecret(strava.access_token_ciphertext, c.env.TOKEN_KEY),
+          refreshToken: await decryptSecret(strava.refresh_token_ciphertext, c.env.TOKEN_KEY),
+          expiresAt: strava.expires_at,
+        },
+        fetchImpl
+      );
+      try {
+        await client.deauthorize();
+      } catch (err) {
+        console.error(
+          `strava deauthorize failed during account deletion: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+    await repo.deleteUserData(c.env.DB, userId);
+    try {
+      await deps.deleteAuthUser(userId, c.env);
+    } catch (err) {
+      console.error(
+        `clerk user deletion failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+      return c.json({ error: "account data deleted but sign-in could not be removed" }, 502);
+    }
+    return c.json({ deleted: true });
   });
 
   app.post("/v1/sync-schedule", async (c) => {

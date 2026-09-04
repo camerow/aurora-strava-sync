@@ -1,7 +1,7 @@
 import { useClerk, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import React from "react";
-import { useSettings } from "@sendtally/features/settings";
+import { useDeleteAccount, useSettings } from "@sendtally/features/settings";
 import { SettingsView } from "../../features/settings/SettingsView";
 import { useApi } from "../../lib/api";
 
@@ -11,11 +11,16 @@ export default function Settings(): React.ReactElement {
   const { user } = useUser();
   const router = useRouter();
   const { vm } = useSettings(api);
+  const onDeleted = React.useCallback(() => {
+    void clerk.signOut().then(() => router.replace("/sign-in"));
+  }, [clerk, router]);
+  const deletion = useDeleteAccount(api, onDeleted);
 
   return (
     <SettingsView
       vm={vm}
       email={user?.primaryEmailAddress?.emailAddress ?? ""}
+      deletion={deletion}
       onSignOut={() => {
         void clerk.signOut().then(() => router.replace("/sign-in"));
       }}
