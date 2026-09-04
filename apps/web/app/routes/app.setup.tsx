@@ -45,7 +45,7 @@ const primaryButton: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 15,
   color: "var(--bs-white)",
-  background: "var(--bs-watermelon-ink)",
+  background: "var(--bs-azure-ink)",
   border: "none",
   borderRadius: "var(--radius-control)",
   padding: "14px 22px",

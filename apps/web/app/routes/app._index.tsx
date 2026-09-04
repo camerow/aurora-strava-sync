@@ -68,7 +68,7 @@ export default function Sessions(): React.ReactElement {
             fontWeight: 600,
             fontSize: 13,
             color: "var(--bs-white)",
-            background: "var(--bs-watermelon-ink)",
+            background: "var(--bs-azure-ink)",
             borderRadius: "var(--radius-control)",
             padding: "9px 16px",
             textDecoration: "none",

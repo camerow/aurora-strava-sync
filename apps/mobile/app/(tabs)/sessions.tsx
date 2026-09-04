@@ -83,7 +83,7 @@ export default function Sessions(): React.ReactElement {
                   justifyContent: "center",
                   paddingHorizontal: 16,
                   borderRadius: radius.control,
-                  backgroundColor: colors.watermelonInk,
+                  backgroundColor: colors.azureInk,
                 }}
               >
                 <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.white }}>

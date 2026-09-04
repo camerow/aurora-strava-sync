@@ -11,11 +11,11 @@ const DETAILS: Array<[string, string]> = [
   ],
   [
     "TRENDS",
-    "Volume, grade pyramid, hardest send, flash rate and average grade, weekly or all-time",
+    "Volume, grade pyramid, hardest send, flash rate and average grade, weekly or all-time - the membership half",
   ],
   [
     "STRAVA",
-    "Optional. One Rock Climbing activity per session, fingerprinted so it never doubles up",
+    "Optional and free for everyone. One Rock Climbing activity per session, fingerprinted so it never doubles up",
   ],
   ["LEAVING", "Delete your account and every session and token goes with it the same day"],
 ];

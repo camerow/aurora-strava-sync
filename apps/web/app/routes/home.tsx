@@ -21,7 +21,7 @@ export function meta(): Array<Record<string, string>> {
     {
       name: "description",
       content:
-        "Log a climbing session in a minute - grades, sends, attempts - and sendtally turns the history into volume, grade pyramids, flash rate and progression, with an effort score for every session. It posts each session to Strava too.",
+        "Logging is free - grades, sends, attempts, an effort score on every session and Strava syncing, for everyone. Membership gives you the trends: volume, grade pyramids, flash rate, hardest send and average grade.",
     },
   ];
 }

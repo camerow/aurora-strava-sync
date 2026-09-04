@@ -8,7 +8,12 @@ import { jsonResponse, makeFakeFetch } from "./fakes";
 
 function testApp(fetchImpl?: typeof fetch) {
   return createApp({
-    verifyUser: async (req) => req.headers.get("x-test-user"),
+    verifyUser: async (req) => {
+      const userId = req.headers.get("x-test-user");
+      if (userId === null) return null;
+      const features = (req.headers.get("x-test-features") ?? "").split(",");
+      return { userId, hasFeature: (feature) => features.includes(feature) };
+    },
     ...(fetchImpl === undefined ? {} : { fetchImpl }),
   });
 }
@@ -324,7 +329,10 @@ describe("app", () => {
       "/v1/strava/posting",
       {
         method: "POST",
-        headers: { "x-test-user": "user_posting", "Content-Type": "application/json" },
+        headers: {
+          "x-test-user": "user_posting",
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ board: "kilter", mode: "all" }),
       },
       fakeEnv
@@ -715,5 +723,16 @@ describe("app", () => {
       .bind(userId)
       .first<{ n: number }>();
     expect(row?.n).toBe(0);
+  });
+
+  it("starts the strava connect flow for any signed-in user", async () => {
+    const res = await testApp().request(
+      "/v1/connect/strava/start",
+      { headers: { "x-test-user": "user_free" } },
+      env
+    );
+    expect(res.status).toBe(200);
+    const { url } = (await res.json()) as { url: string };
+    expect(url).toContain("https://www.strava.com/oauth/authorize");
   });
 });
