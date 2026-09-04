@@ -80,7 +80,12 @@ export default function TrendDetailScreen(): React.ReactElement {
                 paddingHorizontal: 16,
               }}
             >
-              <TrendBars bars={state.data.details[metric].bars} height={140} showValues />
+              <TrendBars
+                bars={state.data.details[metric].bars}
+                yTicks={state.data.details[metric].yTicks}
+                height={140}
+                showValues
+              />
             </View>
             <View>
               {state.data.details[metric].specs.map((sp) => (

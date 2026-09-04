@@ -24,6 +24,7 @@ export type TrendTileVM = {
   value: string;
   caption: string;
   bars: TrendBarVM[];
+  yTicks: string[];
 };
 
 export type TrendSpecVM = { k: string; v: string };
@@ -33,6 +34,7 @@ export type TrendDetailVM = {
   title: string;
   caption: string;
   bars: TrendBarVM[];
+  yTicks: string[];
   specs: TrendSpecVM[];
   insight: string;
 };

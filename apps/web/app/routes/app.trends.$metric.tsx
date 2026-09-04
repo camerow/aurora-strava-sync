@@ -84,7 +84,7 @@ export default function TrendDetailRoute(): React.ReactElement {
                   padding: "22px 20px",
                 }}
               >
-                <TrendBars bars={detail.bars} height={150} showValues />
+                <TrendBars bars={detail.bars} yTicks={detail.yTicks} height={150} showValues />
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {detail.specs.map((sp) => (

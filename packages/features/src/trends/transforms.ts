@@ -118,6 +118,11 @@ export function bucketsFor(range: TrendRange, now: Date, firstSessionMs: number 
   }
 }
 
+function ticks(max: number, format: (v: number) => string): string[] {
+  if (max <= 0) return ["", "", ""];
+  return [format(max), format(max / 2), format(0)];
+}
+
 function thinAxis(buckets: Bucket[]): (i: number) => string {
   const every = Math.max(1, Math.ceil(buckets.length / 6));
   return (i) => (i % every === 0 || i === buckets.length - 1 ? buckets[i]!.label : "");
@@ -169,6 +174,10 @@ export function trendsVM(
   const avgGrade = totalSends > 0 ? rangeSends.reduce((a, s) => a + s.grade, 0) / totalSends : 0;
 
   const axis = thinAxis(buckets);
+  const countTick = (v: number): string => String(Math.round(v));
+  const gradeTick = (v: number): string => `V${Math.round(v)}`;
+  const avgTick = (v: number): string => `V${v.toFixed(1)}`;
+  const pctTick = (v: number): string => `${Math.round(v)}%`;
 
   const volumeBars: TrendBarVM[] = normalize(bucketClimbs).map((h, i) => ({
     height: h,
@@ -177,7 +186,9 @@ export function trendsVM(
     axisLabel: axis(i),
   }));
 
-  const pyramidMax = Math.max(1, ...pyramid.map((p) => p.count));
+  const volumeMax = Math.max(0, ...bucketClimbs);
+  const pyramidPeak = Math.max(0, ...pyramid.map((p) => p.count));
+  const pyramidMax = Math.max(1, pyramidPeak);
   const pyramidBars: TrendBarVM[] = pyramid.map((p) => ({
     height: p.count === 0 ? 0 : p.count / pyramidMax,
     peak: p.grade === hi && p.count > 0,
@@ -196,6 +207,7 @@ export function trendsVM(
     };
   });
 
+  const avgMax = Math.max(0, ...bucketAvg);
   const flashBest = Math.max(0, ...bucketFlash.map((f) => f ?? 0));
   const flashBars: TrendBarVM[] = bucketFlash.map((f, i) => ({
     height: f === null || flashBest === 0 ? 0 : f / flashBest,
@@ -222,6 +234,7 @@ export function trendsVM(
       value: `${totalClimbs} climbs`,
       caption: `${inRange.length} SESSIONS · ${rangeLabel}`,
       bars: volumeBars,
+      yTicks: ticks(volumeMax, countTick),
     },
     {
       metric: "pyramid",
@@ -229,6 +242,7 @@ export function trendsVM(
       value: `${totalSends} sends`,
       caption: totalSends > 0 ? `${rangeLabel} · V${lo}-V${hi}` : rangeLabel,
       bars: pyramidBars,
+      yTicks: ticks(pyramidPeak, countTick),
     },
     {
       metric: "hardest",
@@ -236,6 +250,7 @@ export function trendsVM(
       value: totalSends > 0 ? `V${hi}` : "-",
       caption: rangeLabel,
       bars: hardestBars,
+      yTicks: ticks(hi, gradeTick),
     },
     {
       metric: "flash",
@@ -243,6 +258,7 @@ export function trendsVM(
       value: lastFlash === null ? "-" : `${lastFlash}%`,
       caption: `SENDS ON THE FIRST TRY · ${rangeLabel}`,
       bars: flashBars,
+      yTicks: ticks(flashBest, pctTick),
     },
     {
       metric: "avggrade",
@@ -250,6 +266,7 @@ export function trendsVM(
       value: totalSends > 0 ? `V${avgGrade.toFixed(1)}` : "-",
       caption: rangeLabel,
       bars: avgBars,
+      yTicks: ticks(avgMax, avgTick),
     },
   ];
 
@@ -259,6 +276,7 @@ export function trendsVM(
       title: "Volume",
       caption: `CLIMBS OVER TIME · ${rangeLabel}`,
       bars: volumeBars,
+      yTicks: ticks(volumeMax, countTick),
       specs: [
         { k: "SESSIONS", v: String(inRange.length) },
         { k: "CLIMBS", v: String(totalClimbs) },
@@ -277,6 +295,7 @@ export function trendsVM(
       title: "Grade pyramid",
       caption: `SENDS BY GRADE · ${rangeLabel}`,
       bars: pyramidBars,
+      yTicks: ticks(pyramidPeak, countTick),
       specs: [
         {
           k: "BASE",
@@ -306,6 +325,7 @@ export function trendsVM(
       title: "Hardest send",
       caption: `MAX GRADE OVER TIME · ${rangeLabel}`,
       bars: hardestBars,
+      yTicks: ticks(hi, gradeTick),
       specs: [
         { k: "MAX", v: totalSends > 0 ? `V${hi}` : "-" },
         {
@@ -329,6 +349,7 @@ export function trendsVM(
       title: "Flash rate",
       caption: `FLASHES AS % OF SENDS · ${rangeLabel}`,
       bars: flashBars,
+      yTicks: ticks(flashBest, pctTick),
       specs: [
         {
           k: "FLASH CEILING",
@@ -355,6 +376,7 @@ export function trendsVM(
       title: "Avg grade",
       caption: `AVG SEND GRADE OVER TIME · ${rangeLabel}`,
       bars: avgBars,
+      yTicks: ticks(avgMax, avgTick),
       specs: [
         { k: "AVG", v: totalSends > 0 ? `V${avgGrade.toFixed(1)}` : "-" },
         {
