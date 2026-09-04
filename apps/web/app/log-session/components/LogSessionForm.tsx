@@ -524,7 +524,7 @@ export function LogSessionForm({ api }: { api: SendtallyApi }): React.ReactEleme
               fontSize: 15,
               padding: "14px 22px",
               borderRadius: "var(--radius-control)",
-              background: "var(--bs-watermelon-ink)",
+              background: "var(--bs-azure-ink)",
               color: "var(--bs-white)",
               border: "none",
               cursor: "pointer",

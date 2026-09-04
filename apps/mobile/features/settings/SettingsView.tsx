@@ -16,16 +16,10 @@ import {
 export type SettingsViewProps = {
   vm: SettingsVM;
   email: string;
-  canSyncStrava: boolean;
   onSignOut: () => void;
 };
 
-export function SettingsView({
-  vm,
-  email,
-  canSyncStrava,
-  onSignOut,
-}: SettingsViewProps): React.ReactElement {
+export function SettingsView({ vm, email, onSignOut }: SettingsViewProps): React.ReactElement {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>
       <ScrollView
@@ -53,15 +47,13 @@ export function SettingsView({
 
         <View style={sectionCard}>
           <Text style={sectionLabel}>STRAVA</Text>
-          <Text style={monoMuted}>{canSyncStrava ? vm.stravaStatusLabel : "MEMBERS ONLY"}</Text>
+          <Text style={monoMuted}>{vm.stravaStatusLabel}</Text>
           <Text style={bodyText}>
-            {!canSyncStrava
-              ? "Strava sync is part of membership. Each logged session posts to your feed as a Rock Climbing activity, so board training counts toward your training load."
-              : vm.stravaActive
-                ? "Strava is linked. Sessions you log can post to your feed as Rock Climbing activities."
-                : vm.stravaConnected
-                  ? "Strava access has lapsed. Re-link it on the web at sendtally.com."
-                  : "Connect Strava on the web at sendtally.com and your logged sessions can post to your feed."}
+            {vm.stravaActive
+              ? "Strava is linked. Sessions you log can post to your feed as Rock Climbing activities."
+              : vm.stravaConnected
+                ? "Strava access has lapsed. Re-link it on the web at sendtally.com."
+                : "Connect Strava on the web at sendtally.com and your logged sessions can post to your feed."}
           </Text>
         </View>
 
