@@ -1,11 +1,10 @@
-import { Hono, type MiddlewareHandler } from "hono";
+import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { defaultSessionConfig, isInProgress } from "@sendtally/core";
 import { z } from "zod";
 import type { AuthedUser } from "./auth";
 import type { Env } from "./bindings";
-import { STRAVA_SYNC_FEATURE } from "./features";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
 import { decryptSecret, encryptSecret } from "./lib/crypto";
 import { buildManualSession, historySession, manualSessionBody } from "./lib/manual";
@@ -136,14 +135,6 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     await next();
   });
 
-  const requireFeature = (feature: string): MiddlewareHandler<AppEnv> =>
-    async function gate(c, next) {
-      if (!c.get("hasFeature")(feature)) {
-        return c.json({ error: "membership required", feature }, 402);
-      }
-      await next();
-    };
-
   app.post("/v1/connect/board", async (c) => {
     const parsed = connectBoardBody.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
@@ -174,7 +165,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     return c.json({ board, boardUserId: session.userId });
   });
 
-  app.get("/v1/connect/strava/start", requireFeature(STRAVA_SYNC_FEATURE), async (c) => {
+  app.get("/v1/connect/strava/start", async (c) => {
     const userId = c.get("userId");
     const nonce = crypto.randomUUID();
     setCookie(c, "st_oauth", nonce, {
@@ -323,7 +314,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     });
   });
 
-  app.post("/v1/strava/posting", requireFeature(STRAVA_SYNC_FEATURE), async (c) => {
+  app.post("/v1/strava/posting", async (c) => {
     const parsed = stravaPostingBody.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "invalid request body" }, 400);
     const userId = c.get("userId");

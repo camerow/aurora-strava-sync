@@ -56,7 +56,7 @@ export function UpgradeCard({ title, body, points = [] }: UpgradeCardProps): Rea
       <Pressable
         onPress={() => void Linking.openURL(MEMBERSHIP_URL)}
         style={{
-          backgroundColor: colors.watermelonInk,
+          backgroundColor: colors.azureInk,
           borderRadius: radius.control,
           paddingVertical: 14,
           minHeight: 48,

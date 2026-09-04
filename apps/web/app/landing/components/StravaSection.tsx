@@ -10,7 +10,7 @@ export function StravaSection(): React.ReactElement {
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 20 }}
         >
           <Label on="dark" style={{ letterSpacing: "0.1em" }}>
-            ALSO: STRAVA
+            ALSO: STRAVA · FREE
           </Label>
           <h2
             className="l-section-title"
@@ -29,7 +29,8 @@ export function StravaSection(): React.ReactElement {
             }}
           >
             Each logged session becomes one Rock Climbing activity, with duration, sends, attempts
-            and grades already filled in. Turn it off and sendtally is still yours for the numbers
+            and grades already filled in. It is free for everyone and always will be - we do not
+            charge for Strava syncing. Turn it off and sendtally is still yours for the numbers
             alone.
           </p>
           <Button variant="azure" href="/app">

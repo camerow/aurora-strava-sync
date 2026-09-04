@@ -331,7 +331,6 @@ describe("app", () => {
         method: "POST",
         headers: {
           "x-test-user": "user_posting",
-          "x-test-features": "strava-sync",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ board: "kilter", mode: "all" }),
@@ -726,25 +725,14 @@ describe("app", () => {
     expect(row?.n).toBe(0);
   });
 
-  it("gates the strava connect start on the strava-sync feature", async () => {
-    const locked = await testApp().request(
+  it("starts the strava connect flow for any signed-in user", async () => {
+    const res = await testApp().request(
       "/v1/connect/strava/start",
       { headers: { "x-test-user": "user_free" } },
       env
     );
-    expect(locked.status).toBe(402);
-    expect(await locked.json()).toEqual({
-      error: "membership required",
-      feature: "strava-sync",
-    });
-
-    const member = await testApp().request(
-      "/v1/connect/strava/start",
-      { headers: { "x-test-user": "user_member", "x-test-features": "strava-sync" } },
-      env
-    );
-    expect(member.status).toBe(200);
-    const { url } = (await member.json()) as { url: string };
+    expect(res.status).toBe(200);
+    const { url } = (await res.json()) as { url: string };
     expect(url).toContain("https://www.strava.com/oauth/authorize");
   });
 });

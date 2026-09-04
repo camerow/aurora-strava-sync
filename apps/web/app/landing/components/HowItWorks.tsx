@@ -28,8 +28,8 @@ export function HowItWorks(): React.ReactElement {
             A minute after you climb.
           </h2>
           <span className="l-section-blurb">
-            No accounts to link, no importers to babysit. Log the session and the trends, effort
-            score and Strava post follow from it.
+            No accounts to link, no importers to babysit. Log the session and the effort score and
+            Strava post follow from it for free; the trends build themselves for members.
           </span>
         </div>
         <div className="l-card-grid">

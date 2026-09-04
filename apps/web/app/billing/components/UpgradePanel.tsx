@@ -14,7 +14,7 @@ const primaryLink: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 15,
   color: "var(--bs-white)",
-  background: "var(--bs-watermelon-ink)",
+  background: "var(--bs-azure-ink)",
   borderRadius: "var(--radius-control)",
   padding: "14px 22px",
   textDecoration: "none",
