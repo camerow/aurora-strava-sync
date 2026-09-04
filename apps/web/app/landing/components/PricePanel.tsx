@@ -1,5 +1,7 @@
 import React from "react";
-import { Button } from "@sendtally/design";
+import { Label } from "@sendtally/design";
+import { MembershipPricing } from "../../billing/components/MembershipPricing";
+import { MEMBER_BENEFITS } from "../../billing/features";
 
 export function PricePanel(): React.ReactElement {
   return (
@@ -8,18 +10,10 @@ export function PricePanel(): React.ReactElement {
         <div
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 18 }}
         >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontWeight: 500,
-              fontSize: 11,
-              letterSpacing: "0.1em",
-              color: "var(--text-on-light)",
-            }}
-          >
+          <Label on="light" style={{ color: "var(--text-on-light)" }}>
             PRICE
-          </span>
-          <h2 className="l-price-title">Free. No subscription.</h2>
+          </Label>
+          <h2 className="l-price-title">Logging is free. Membership is the history.</h2>
           <p
             style={{
               margin: 0,
@@ -30,61 +24,51 @@ export function PricePanel(): React.ReactElement {
               textWrap: "pretty",
             }}
           >
-            It's one person's side project and the running costs are small. If it saves you the
-            logging, chip in whatever it's worth to you - that's what keeps the server on.
+            Sign up, log sessions, keep your logbook - that costs nothing and always will. Five
+            dollars a month is what turns the log into a training history, and it is what pays for
+            the server.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-            <Button variant="primary" href="https://github.com/sponsors/camerow">
-              ♥ Donate to support my work
-            </Button>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 13,
-                color: "var(--text-on-light)",
-              }}
-            >
-              GitHub Sponsors
-            </span>
-          </div>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: 18,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: "var(--text-on-light-secondary)",
+              maxWidth: 480,
+            }}
+          >
+            {MEMBER_BENEFITS.map((benefit) => (
+              <li key={benefit.title}>
+                {benefit.title}
+                {benefit.soon === true && (
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      letterSpacing: "0.08em",
+                      color: "var(--text-label-accent)",
+                      marginLeft: 8,
+                    }}
+                  >
+                    COMING SOON
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
         <div
           style={{
-            background: "var(--surface-panel)",
+            background: "var(--bs-white)",
             borderRadius: "var(--radius-card)",
-            padding: 28,
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
+            padding: 20,
           }}
         >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontWeight: 500,
-              fontSize: 11,
-              letterSpacing: "0.1em",
-              color: "var(--text-on-dark-label)",
-            }}
-          >
-            GET STARTED
-          </span>
-          <span style={{ fontSize: 15, lineHeight: 1.55, color: "rgba(255,255,255,0.85)" }}>
-            Open to everyone. Sign in with an email code, log your first session, and connect Strava
-            whenever you want it on your feed.
-          </span>
-          <Button variant="azure" href="/app">
-            Create account
-          </Button>
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "rgba(238,211,248,0.85)",
-            }}
-          >
-            No password. No card.
-          </span>
+          <MembershipPricing />
         </div>
       </div>
     </div>
