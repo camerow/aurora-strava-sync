@@ -7,6 +7,7 @@ import type { Env } from "./bindings";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
 import { decryptSecret, encryptSecret } from "./lib/crypto";
 import { buildManualSession, historySession, manualSessionBody } from "./lib/manual";
+import { getPostHog } from "./lib/posthog";
 import * as repo from "./lib/repo";
 import { authorizeUrl, exchangeAuthCode, StravaUnauthorizedError } from "./lib/strava";
 import { wallClockNow } from "./lib/time";
@@ -43,6 +44,29 @@ const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars }> {
   const fetchImpl: typeof fetch = deps.fetchImpl ?? ((input, init) => fetch(input, init));
   const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+
+  const captureEvent = async (
+    env: Env,
+    event: string,
+    properties: Record<string, string | boolean>,
+    distinctId?: string
+  ) => {
+    const posthog = getPostHog(env);
+    if (posthog === null) return;
+    posthog.capture(
+      distinctId === undefined ? { event, properties } : { distinctId, event, properties }
+    );
+    await posthog.flush();
+  };
+
+  app.onError(async (error, c) => {
+    const posthog = getPostHog(c.env);
+    if (posthog !== null) {
+      posthog.captureException(error, c.get("userId"));
+      await posthog.flush();
+    }
+    return c.json({ error: "internal server error" }, 500);
+  });
 
   app.get("/health", (c) => c.json({ ok: true }));
 
@@ -84,6 +108,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       return c.json({ error: "bad state" }, 400);
     }
     if (Date.now() > state.exp) return c.json({ error: "state expired" }, 400);
+    c.set("userId", state.userId);
     // Soft browser binding: the web flow carries the nonce cookie and must match;
     // the mobile flow authorizes in the system browser, which never saw the cookie.
     const cookieNonce = getCookie(c, "st_oauth");
@@ -114,13 +139,19 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       expires_at: exchanged.tokens.expiresAt,
     });
     await c.env.SYNC_QUEUE.send({ kind: "user", userId: state.userId });
+    await captureEvent(c.env, "strava_connection_completed", {}, state.userId);
     return c.redirect(`${c.env.WEB_APP_URL}/connected/strava`);
   });
 
   app.use("/v1/*", (c, next) =>
     cors({
       origin: c.env.WEB_APP_URL,
-      allowHeaders: ["Authorization", "Content-Type"],
+      allowHeaders: [
+        "Authorization",
+        "Content-Type",
+        "X-POSTHOG-DISTINCT-ID",
+        "X-POSTHOG-SESSION-ID",
+      ],
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     })(c, next)
   );
@@ -128,7 +159,17 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const userId = await deps.verifyUser(c.req.raw, c.env);
     if (userId === null) return c.json({ error: "unauthorized" }, 401);
     c.set("userId", userId);
-    await next();
+
+    const posthog = getPostHog(c.env);
+    if (posthog === null) return next();
+
+    return posthog.withContext(
+      {
+        distinctId: userId,
+        sessionId: c.req.header("X-POSTHOG-SESSION-ID"),
+      },
+      next
+    );
   });
 
   app.post("/v1/connect/board", async (c) => {
@@ -158,6 +199,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     });
     await c.env.SYNC_QUEUE.send({ kind: "catalogue", board });
     await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
+    await captureEvent(c.env, "board_connection_created", { board });
     return c.json({ board, boardUserId: session.userId });
   });
 
@@ -181,6 +223,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       redirectUri,
       state
     );
+    await captureEvent(c.env, "strava_connection_started", {});
     return c.json({ url });
   });
 
@@ -253,6 +296,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const history = await manualScoringHistory(c.env.DB, userId);
     const input = buildManualSession(fingerprint, parsed.data, history);
     await repo.insertManualSession(c.env.DB, userId, input);
+    await captureEvent(c.env, "manual_session_created", { session_source: "manual" });
     return c.json({ session: await sessionResponse(c, userId, fingerprint) }, 201);
   });
 
@@ -269,6 +313,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const history = await manualScoringHistory(c.env.DB, userId, fingerprint);
     const input = buildManualSession(fingerprint, parsed.data, history);
     await repo.updateManualSession(c.env.DB, userId, input);
+    await captureEvent(c.env, "manual_session_updated", { session_source: "manual" });
     return c.json({ session: await sessionResponse(c, userId, fingerprint) });
   });
 
@@ -281,6 +326,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
       return c.json({ error: "only manually logged sessions can be deleted" }, 409);
     }
     await repo.deleteManualSession(c.env.DB, userId, fingerprint);
+    await captureEvent(c.env, "manual_session_deleted", { session_source: "manual" });
     return c.json({ deleted: true });
   });
 
@@ -321,17 +367,18 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     if (strava === null) return c.json({ error: "strava is not connected" }, 409);
     if (mode === "off") {
       await repo.setBoardPosting(c.env.DB, userId, board, false, null);
-      return c.json({ board, mode });
+    } else {
+      const user = await repo.getUser(c.env.DB, userId);
+      const postSince =
+        mode === "new"
+          ? `${wallClockNow(user?.timezone ?? "UTC")
+              .toISOString()
+              .slice(0, 10)} 00:00:00.000000`
+          : null;
+      await repo.setBoardPosting(c.env.DB, userId, board, true, postSince);
+      await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
     }
-    const user = await repo.getUser(c.env.DB, userId);
-    const postSince =
-      mode === "new"
-        ? `${wallClockNow(user?.timezone ?? "UTC")
-            .toISOString()
-            .slice(0, 10)} 00:00:00.000000`
-        : null;
-    await repo.setBoardPosting(c.env.DB, userId, board, true, postSince);
-    await c.env.SYNC_QUEUE.send({ kind: "user", userId, board });
+    await captureEvent(c.env, "strava_posting_configured", { board, mode });
     return c.json({ board, mode });
   });
 
@@ -344,6 +391,9 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     await c.env.SYNC_QUEUE.send(
       board === undefined ? { kind: "user", userId } : { kind: "user", userId, board }
     );
+    await captureEvent(c.env, "sync_requested", {
+      sync_scope: board === undefined ? "all_boards" : "board",
+    });
     return c.json({ queued: true });
   });
 
@@ -353,6 +403,7 @@ export function createApp(deps: AppDeps): Hono<{ Bindings: Env; Variables: Vars 
     const userId = c.get("userId");
     await repo.ensureUser(c.env.DB, userId);
     await repo.setAutoSync(c.env.DB, userId, parsed.data.mode === "daily");
+    await captureEvent(c.env, "sync_schedule_updated", { mode: parsed.data.mode });
     return c.json({ mode: parsed.data.mode });
   });
 
