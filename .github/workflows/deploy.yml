@@ -36,7 +36,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: >
           ../../.github/scripts/require-secrets.sh ${{ env.DEPLOY_ENV }}
-          TOKEN_KEY CLERK_SECRET_KEY STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET STRAVA_WEBHOOK_VERIFY_TOKEN
+          TOKEN_KEY CLERK_SECRET_KEY CLERK_WEBHOOK_SIGNING_SECRET STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET STRAVA_WEBHOOK_VERIFY_TOKEN
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

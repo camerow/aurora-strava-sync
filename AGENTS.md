@@ -86,11 +86,12 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 
 ### Secrets
 
-- Source of truth is the **Doppler project `sendtally`** (configs `stg` and `prd`): `TOKEN_KEY`, `CLERK_SECRET_KEY`, `VITE_CLERK_PUBLISHABLE_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`.
+- Source of truth is the **Doppler project `sendtally`** (configs `stg` and `prd`): `TOKEN_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `VITE_CLERK_PUBLISHABLE_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`.
 - Push to Workers with `doppler secrets download --no-file --format json --project sendtally --config <stg|prd> | ... | wrangler secret bulk --env <staging|production>`. Never paste secret values into files, commits, or chat.
-- **Both Workers need secrets, so run that push twice.** From `packages/sync-service`: `TOKEN_KEY`, `CLERK_SECRET_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`. From `apps/web`: `CLERK_SECRET_KEY` - `apps/web` renders every route through `clerkMiddleware()`, so without it the Worker throws on every request and the whole site 500s while the deploy still reports success.
+- **Both Workers need secrets, so run that push twice.** From `packages/sync-service`: `TOKEN_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`. From `apps/web`: `CLERK_SECRET_KEY` - `apps/web` renders every route through `clerkMiddleware()`, so without it the Worker throws on every request and the whole site 500s while the deploy still reports success.
 - Secrets live on the Worker, not in the config, so **a Worker deleted and recreated in the dashboard comes back with none of them**. `deploy.yml` runs `.github/scripts/require-secrets.sh` before each deploy to fail loudly instead of shipping a Worker that 500s.
 - The Strava credentials originate from the maker's Strava API app; Clerk keys from the Clerk dashboard (kept in 1Password, vault "Send Tally").
+- `CLERK_WEBHOOK_SIGNING_SECRET` comes from the Clerk dashboard endpoint for `POST https://api.sendtally.com/webhooks/clerk` subscribed to `user.deleted`; each Clerk instance signs with its own secret, so staging and production hold different values. Without it the Worker rejects every Clerk webhook and account deletions made outside the app leave orphaned D1 rows.
 
 ## The sync pipeline (hosted)
 

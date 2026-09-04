@@ -3,9 +3,10 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { defaultSessionConfig, isInProgress } from "@sendtally/core";
 import { z } from "zod";
-import type { AuthedUser } from "./auth";
+import type { AuthedUser, AuthWebhookEvent } from "./auth";
 import type { Env } from "./bindings";
 import { STRAVA_SYNC_FEATURE } from "./features";
+import { purgeAccount } from "./lib/account";
 import { AuroraClient, baseUrlFor, BOARDS, InvalidBoardCredentialsError } from "./lib/aurora";
 import { decryptSecret, encryptSecret } from "./lib/crypto";
 import { buildManualSession, historySession, manualSessionBody } from "./lib/manual";
@@ -21,6 +22,7 @@ import { wallClockNow } from "./lib/time";
 export type AppDeps = {
   verifyUser: (req: Request, env: Env) => Promise<AuthedUser | null>;
   deleteAuthUser: (userId: string, env: Env) => Promise<void>;
+  verifyAuthWebhook: (req: Request, env: Env) => Promise<AuthWebhookEvent>;
   fetchImpl?: typeof fetch;
 };
 
@@ -77,6 +79,23 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       typeof event.object_id === "number"
     ) {
       await repo.markStravaConnectionDeadByAthlete(c.env.DB, event.object_id);
+    }
+    return c.json({ ok: true });
+  });
+
+  app.post("/webhooks/clerk", async (c) => {
+    let event: AuthWebhookEvent;
+    try {
+      event = await deps.verifyAuthWebhook(c.req.raw, c.env);
+    } catch (err) {
+      console.error(`clerk webhook rejected: ${err instanceof Error ? err.message : String(err)}`);
+      return c.json({ error: "bad signature" }, 400);
+    }
+    // Covers deletions we did not initiate - Clerk's account portal and the
+    // Clerk dashboard both land here, and they would otherwise orphan the
+    // user's D1 rows and leave their Strava grant live.
+    if (event.type === "user.deleted" && event.userId !== null) {
+      await purgeAccount(c.env, event.userId, fetchImpl);
     }
     return c.json({ ok: true });
   });
@@ -368,26 +387,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 
   app.delete("/v1/account", async (c) => {
     const userId = c.get("userId");
-    const strava = await repo.getStravaConnection(c.env.DB, userId);
-    if (strava !== null) {
-      const client = new StravaClient(
-        { clientId: c.env.STRAVA_CLIENT_ID, clientSecret: c.env.STRAVA_CLIENT_SECRET },
-        {
-          accessToken: await decryptSecret(strava.access_token_ciphertext, c.env.TOKEN_KEY),
-          refreshToken: await decryptSecret(strava.refresh_token_ciphertext, c.env.TOKEN_KEY),
-          expiresAt: strava.expires_at,
-        },
-        fetchImpl
-      );
-      try {
-        await client.deauthorize();
-      } catch (err) {
-        console.error(
-          `strava deauthorize failed during account deletion: ${err instanceof Error ? err.message : String(err)}`
-        );
-      }
-    }
-    await repo.deleteUserData(c.env.DB, userId);
+    await purgeAccount(c.env, userId, fetchImpl);
     try {
       await deps.deleteAuthUser(userId, c.env);
     } catch (err) {
