@@ -33,17 +33,17 @@ state to an R2 bucket with the `s3` backend before a second person runs
 
 Create at dash.cloudflare.com/profile/api-tokens ("Create Custom Token"):
 
-| Scope   | Permission                                   |
-| ------- | -------------------------------------------- |
-| Account | Account Settings: Read                        |
-| Account | Workers Scripts: Edit                        |
-| Account | D1: Edit                                     |
-| Account | Queues: Edit                                 |
-| Zone    | Zone: Edit                                   |
-| Zone    | Zone Settings: Edit                          |
-| Zone    | DNS: Edit                                    |
-| Zone    | SSL and Certificates: Edit                   |
-| Zone    | Workers Routes: Edit                         |
+| Scope   | Permission           | Level |
+| ------- | -------------------- | ----- |
+| Account | Account Settings     | Read  |
+| Account | Workers Scripts      | Edit  |
+| Account | D1                   | Edit  |
+| Account | Queues               | Edit  |
+| Zone    | Zone                 | Edit  |
+| Zone    | Zone Settings        | Edit  |
+| Zone    | DNS                  | Edit  |
+| Zone    | SSL and Certificates | Edit  |
+| Zone    | Workers Routes       | Edit  |
 
 Account resources: **Chalk and Circuits** only. Zone resources: all zones in
 that account. Store it in 1Password; never in tfvars or the repo.
