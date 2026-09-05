@@ -1,23 +1,9 @@
-export type BoardStatus = {
-  board: string;
-  status: string;
-  postingEnabled: boolean;
-  postSince: string | null;
-};
-
 export type ConnectionStatus = {
-  boards: BoardStatus[];
   strava: {
     athleteId: number;
     status: string;
   } | null;
-  sync: { lastSyncedAt: string | null; lastError: string | null } | null;
-  autoSync: boolean;
 };
-
-export type StravaPostingMode = "off" | "new" | "all";
-
-export type SyncScheduleMode = "off" | "daily";
 
 export type ClimbGrade = { scale: "v"; value: number } | { scale: "font"; value: string };
 
@@ -73,15 +59,6 @@ export type LogSessionInput = {
 export type SessionDetail = SessionRow & { climbs: SessionClimb[] };
 
 export type SessionWithClimbs = SessionRow & { climbs: SessionClimb[] };
-
-export type ConnectBoardInput = {
-  board: string;
-  username: string;
-  password: string;
-  timezone?: string;
-};
-
-export type ConnectBoardResult = { board: string; boardUserId: number };
 
 export class ApiError extends Error {
   constructor(

@@ -1,14 +1,10 @@
 import {
   ApiError,
-  type ConnectBoardInput,
-  type ConnectBoardResult,
   type ConnectionStatus,
   type LogSessionInput,
   type SessionRow,
   type SessionDetail,
   type SessionWithClimbs,
-  type StravaPostingMode,
-  type SyncScheduleMode,
 } from "./types";
 
 export * from "./types";
@@ -80,38 +76,7 @@ export class SendtallyApi {
     });
   }
 
-  connectBoard(input: ConnectBoardInput): Promise<ConnectBoardResult> {
-    return this.request<ConnectBoardResult>("/v1/connect/board", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-  }
-
   stravaAuthorizeUrl(): Promise<{ url: string }> {
     return this.request<{ url: string }>("/v1/connect/strava/start");
-  }
-
-  setStravaPosting(
-    board: string,
-    mode: StravaPostingMode
-  ): Promise<{ board: string; mode: StravaPostingMode }> {
-    return this.request<{ board: string; mode: StravaPostingMode }>("/v1/strava/posting", {
-      method: "POST",
-      body: JSON.stringify({ board, mode }),
-    });
-  }
-
-  syncNow(board?: string): Promise<{ queued: boolean }> {
-    return this.request<{ queued: boolean }>("/v1/sync-now", {
-      method: "POST",
-      body: JSON.stringify(board === undefined ? {} : { board }),
-    });
-  }
-
-  setSyncSchedule(mode: SyncScheduleMode): Promise<{ mode: SyncScheduleMode }> {
-    return this.request<{ mode: SyncScheduleMode }>("/v1/sync-schedule", {
-      method: "POST",
-      body: JSON.stringify({ mode }),
-    });
   }
 }
