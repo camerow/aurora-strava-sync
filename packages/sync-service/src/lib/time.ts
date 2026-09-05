@@ -1,12 +1,3 @@
-const AURORA_TIME = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.\d+)?$/;
-
-export function parseAuroraTime(s: string): Date {
-  const m = AURORA_TIME.exec(s);
-  if (!m) throw new Error(`unrecognised aurora timestamp ${JSON.stringify(s)}`);
-  const [, y, mo, d, h, mi, sec] = m;
-  return new Date(Date.UTC(+y!, +mo! - 1, +d!, +h!, +mi!, +sec!));
-}
-
 export function wallClockNow(timezone: string, now: Date = new Date()): Date {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,

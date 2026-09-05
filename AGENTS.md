@@ -2,43 +2,54 @@
 
 ## Project Overview
 
-sendtally is a multi-user service that syncs climbing sessions from Aurora Climbing board apps (Tension, Kilter, Aurora, Decoy, Grasshopper, So iLL, Touchstone) to Strava as `RockClimbing` activities.
-Every logged ascent and attempt is pulled from the board's API, grouped into sessions by time gaps, scored for effort on an RPE-style 1-10 scale, and posted to Strava with an effort-based title and per-climb log.
+sendtally is a multi-user climbing log: users record each climbing session (climbs, grades, sends and attempts, location) in the app, every session is scored for effort on an RPE-style 1-10 scale, and sessions can optionally be posted to Strava as `RockClimbing` activities with an effort-based title and per-climb log.
 
-The product is free for users; the monetization path is ad revenue (SEO content pages on the web app first, mobile ads later).
-The core user value beyond sync is the effort/RPE trend history - "Strava for board climbing effort".
+**The only source of session data is the log-session form the user fills in.** There is no automatic import from any third party.
 
-v1 scope: sign up, connect board account, connect Strava, automatic background sync, session list in the mobile app.
-Trends/dashboards come after v1.
+### Aurora Climbing integration is discontinued (September 2026)
+
+sendtally originally pulled ascents and attempts from Aurora Climbing board apps (Tension, Kilter, Aurora, Decoy, Grasshopper, So iLL, Touchstone) through their private API.
+Aurora asked Will to stop, because using their API this way is against their terms of service. That request is honoured unconditionally:
+
+- Never call any Aurora-hosted API, from the Worker, the apps, tests, scripts, or the Go CLI. Do not add new code paths that do, and do not "fix" or revive existing ones.
+- The board connect flow, the cron/queue sync pipeline, the per-board climb cache, and the `board` session source are legacy. They are being removed; until they are gone, treat them as dead code that must not run in production.
+- Existing `board`-sourced session rows in D1 stay as read-only history for the users who have them. They are never refreshed.
+- Do not describe the product as syncing from boards anywhere (marketing copy, store listings, app strings, docs).
+- Manual entry (`source = "manual"`) is the product. Any future integration must be an officially sanctioned one, agreed with the provider first, and is a decision for Will.
+
+The product is free for users; the monetization path is ad revenue (SEO content pages on the web app first, mobile ads later) plus the paid long-term insights tier.
+The core user value is the effort/RPE trend history - "Strava for board climbing effort".
+
+Current scope: sign up, log sessions via the form, session list and detail, trends, optional Strava posting. Journal entries and project tracking are next.
 
 ## Two implementations live in this repo
 
 1. **The hosted service** (target architecture below): TypeScript monorepo, Cloudflare-hosted, Expo mobile apps. This is the product.
-2. **The Go CLI** (`tools/cli-go/`): the original single-user macOS tool. It stays as Will's personal utility and as the reference implementation for the domain logic. Do not delete it; do not grow it beyond personal-utility scope. Its packages (`session`, `effort`, `grades`, `aurora`, `strava`, `store`) are the acceptance spec for the TypeScript port - same fixtures, same expected RPEs.
+2. **The Go CLI** (`tools/cli-go/`): the original single-user macOS tool, now historical. Its `session`, `effort`, and `grades` packages remain the acceptance spec for the TypeScript port (same fixtures, same expected RPEs). Its `aurora` package must not be run or extended (see above). Do not grow the CLI.
 
 ---
 
 ## Architecture decisions (settled - do not relitigate without Will)
 
-| Decision          | Choice                                                                                                                                                                                        | Why                                                                                                                                                    |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Product shape     | Multi-user SaaS                                                                                                                                                                               | Domain, auth, and mobile apps only make sense multi-user                                                                                               |
-| Serving language  | TypeScript port of the Go engine                                                                                                                                                              | Workers-native; the pure logic is ~800 lines and becomes shareable across service, web, and mobile                                                     |
-| Hosting           | Cloudflare for everything possible                                                                                                                                                            | Workers, D1, Queues, Cron Triggers, custom domains, DNS                                                                                                |
-| Sync trigger      | Cron Trigger + Cloudflare Queue fan-out (hourly), plus a manual sync-now endpoint                                                                                                             | Aurora has no webhooks; polling is the only option. Queues give per-user isolation and retries. No Durable Objects until a proven need                 |
-| Board credentials | Never store passwords. Pass-through login at connect time; persist only the long-lived board API token, AES-GCM encrypted at rest (key in Worker secret, ciphertext in D1)                    | Same policy for Strava refresh tokens. "We never store your board password" must stay true                                                             |
-| Database          | Single shared D1 database, `user_id` keys everywhere. No per-user databases                                                                                                                   | Tiny per-user data; cross-user queries needed; one migration stream                                                                                    |
-| Climb cache       | Per-board shared cache (one per Aurora board), refreshed lazily via the cursor sync API when a user's sync references missing climbs                                                          | Board data is per-board, not per-user. Polls Aurora once per board instead of once per user - protects us from being blocked on their private API      |
-| Derived data      | Computed sessions and effort results are persisted in D1 per user                                                                                                                             | App reads (session list, future trends) never re-hit Aurora or recompute. Avoid external API calls wherever derived data suffices                      |
-| Auth              | Clerk, headless mode (their hooks, our components), email one-time codes (magic links dropped: Clerk production defaults to codes, and links break when opened in a different browser client) | First-class Expo SDK; Workers-side JWT verification via `@clerk/backend`. The Clerk user ID (`sub`) is the user key in D1 - no parallel identity table |
-| Web framework     | React Router 7 (framework mode) on Cloudflare Workers, one app for marketing + dashboard                                                                                                      | The path Cloudflare paves; SSR for SEO. Next-on-OpenNext adapter tax rejected; Expo web rejected for SEO                                               |
-| Mobile            | Expo (iOS + Android only, no Expo web), EAS builds                                                                                                                                            |                                                                                                                                                        |
-| API layer         | Hono on Workers with `hono/client` RPC, Zod validation at the edges                                                                                                                           | End-to-end types into Expo and web with no codegen. fetch + scheduled + queue handlers in one Worker: the whole backend is one deployable              |
-| Design system     | Shared tokens, platform-native components. No universal component library (no Tamagui/gluestack)                                                                                              | See Design system section                                                                                                                              |
-| Theming           | Single theme. No light/dark mode                                                                                                                                                              | Ignore dark-mode machinery entirely                                                                                                                    |
-| Notifications     | Expo push only for v1. Reconnect prompts always on; sync-result pushes off by default                                                                                                         | Every user has the app; Clerk owns the only email we send (magic links)                                                                                |
-| Strava deauth     | Subscribe to Strava's deauthorization webhook from day one                                                                                                                                    | Mark connections dead immediately instead of via failed posts                                                                                          |
-| Pricing           | Free. Ad revenue path (web content pages first)                                                                                                                                               | Keep infra on free tiers; SEO web content is the ad surface                                                                                            |
+| Decision         | Choice                                                                                                                                                                                        | Why                                                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Product shape    | Multi-user SaaS                                                                                                                                                                               | Domain, auth, and mobile apps only make sense multi-user                                                                                               |
+| Serving language | TypeScript port of the Go engine                                                                                                                                                              | Workers-native; the pure logic is ~800 lines and becomes shareable across service, web, and mobile                                                     |
+| Hosting          | Cloudflare for everything possible                                                                                                                                                            | Workers, D1, custom domains, DNS                                                                                                                       |
+| Session source   | Manual entry only: the log-session form (`POST /v1/sessions`, `PUT /v1/sessions/:fingerprint`). No cron, no queue, no third-party polling                                                     | Aurora integration discontinued at Aurora's request (see Project Overview). Remove the cron/queue pipeline rather than repurpose it                    |
+| Credentials      | Never store passwords. The only stored third-party credential is the Strava token pair, AES-GCM encrypted at rest (key in Worker secret, ciphertext in D1)                                    | Legacy board tokens in D1 are dead and get deleted with the board tables. "We never store your password" must stay true                                |
+| Database         | Single shared D1 database, `user_id` keys everywhere. No per-user databases                                                                                                                   | Tiny per-user data; cross-user queries needed; one migration stream                                                                                    |
+| Climb cache      | Removed. The per-board climb name/grade cache and its cursors are legacy tables scheduled for deletion                                                                                        | Board data came from Aurora's API, which we no longer call. Manual climbs carry their own name and grade                                               |
+| Derived data     | Computed effort results (RPE, title, summary, top grades) are persisted in D1 per session at write time                                                                                       | App reads (session list, trends) never recompute. Scoring history is the user's own prior sessions                                                     |
+| Auth             | Clerk, headless mode (their hooks, our components), email one-time codes (magic links dropped: Clerk production defaults to codes, and links break when opened in a different browser client) | First-class Expo SDK; Workers-side JWT verification via `@clerk/backend`. The Clerk user ID (`sub`) is the user key in D1 - no parallel identity table |
+| Web framework    | React Router 7 (framework mode) on Cloudflare Workers, one app for marketing + dashboard                                                                                                      | The path Cloudflare paves; SSR for SEO. Next-on-OpenNext adapter tax rejected; Expo web rejected for SEO                                               |
+| Mobile           | Expo (iOS + Android only, no Expo web), EAS builds                                                                                                                                            |                                                                                                                                                        |
+| API layer        | Hono on Workers with `hono/client` RPC, Zod validation at the edges                                                                                                                           | End-to-end types into Expo and web with no codegen. fetch handler plus Strava webhook in one Worker: the whole backend is one deployable               |
+| Design system    | Shared tokens, platform-native components. No universal component library (no Tamagui/gluestack)                                                                                              | See Design system section                                                                                                                              |
+| Theming          | Single theme. No light/dark mode                                                                                                                                                              | Ignore dark-mode machinery entirely                                                                                                                    |
+| Notifications    | Expo push only for v1. Reconnect prompts always on; sync-result pushes off by default                                                                                                         | Every user has the app; Clerk owns the only email we send (magic links)                                                                                |
+| Strava deauth    | Subscribe to Strava's deauthorization webhook from day one                                                                                                                                    | Mark connections dead immediately instead of via failed posts                                                                                          |
+| Pricing          | Free. Ad revenue path (web content pages first)                                                                                                                                               | Keep infra on free tiers; SEO web content is the ad surface                                                                                            |
 
 ## Monorepo structure (target)
 
@@ -46,10 +57,10 @@ Trends/dashboards come after v1.
 sendtally/
 ├── apps/
 │   ├── mobile/          Expo (iOS + Android), EAS builds
-│   └── web/             React Router 7 on Workers: marketing, SEO content, connect flows, dashboard
+│   └── web/             React Router 7 on Workers: marketing, SEO content, Strava connect, dashboard
 ├── packages/
 │   ├── core/            ported session/effort/grades logic - pure, no I/O, no platform deps
-│   ├── sync-service/    Hono Worker: API + cron + queue consumer + D1 schema/migrations
+│   ├── sync-service/    Hono Worker: API + D1 schema/migrations (cron/queue handlers are legacy, being removed)
 │   ├── api-client/      typed hono/client wrapper consumed by mobile and web
 │   ├── design/          design tokens (CSS variables) + React component library
 │   └── ui-native/       NativeWind component kit for mobile
@@ -92,29 +103,26 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 - Secrets live on the Worker, not in the config, so **a Worker deleted and recreated in the dashboard comes back with none of them**. `deploy.yml` runs `.github/scripts/require-secrets.sh` before each deploy to fail loudly instead of shipping a Worker that 500s.
 - The Strava credentials originate from the maker's Strava API app; Clerk keys from the Clerk dashboard (kept in 1Password, vault "Send Tally").
 
-## The sync pipeline (hosted)
+## Session flow (hosted)
 
-The domain flow ports directly from the Go CLI:
+1. The user submits the log-session form (name, date, start/end time, location, climbs with grade, send/attempt, tries, optional RPE). Zod validates the body (`manualSessionBody`).
+2. The Worker assigns `fingerprint = manual-<uuid>` and builds the session with `buildManualSession`, scoring it against the user's other sessions with `@sendtally/core` to produce RPE, title, and summary.
+3. The row is written to `sessions` with `source = "manual"` and the climbs stored in `climbs_json`.
+4. Strava posting for manual sessions is not wired yet (it only ever ran inside the removed Aurora pipeline). When it is added: post on create, then patch perceived exertion in a second call (the create endpoint ignores the field). `StravaClient` in `lib/strava.ts` and the `posting_enabled` / `post_since` columns on `strava_connections` are ready for it.
 
-1. Cron (hourly) enqueues one queue message per user due for sync.
-2. The queue consumer pulls the user's ascents/bids from their board via the cursor sync API.
-3. Climb names/grades resolve from the shared per-board cache (its own cron keeps it fresh).
-4. `@sendtally/core` groups climbs into sessions (90-minute gap, warmup/cooldown buffers) and excludes sessions inside the in-progress window (~2h) so an ongoing session is never posted early.
-5. `@sendtally/core` scores each session against the user's rolling 8-week history and produces RPE, title, and description.
-6. Unposted sessions post to Strava; perceived exertion is patched in a second call (the create endpoint ignores the field).
+Invariants:
 
-Invariants that must survive the port:
-
-- Session identity is `fingerprint(userID, firstClimb.rawTime)`: tuning gap/buffer config must never change identity or cause duplicate posts.
-- Dedup lives in the database (`is_posted` checked before, `mark_posted` after). Retries, overlapping runs, and resumed backfills are always safe.
-- Strava rate limiting is a clean pause, not an error; the queue retry picks the user back up.
+- Session identity is the fingerprint; edits keep it, so a Strava activity is never posted twice for one session.
+- Dedup lives in the database (`strava_activity_id` / `posted_at` checked before posting, set after). Retries are always safe.
+- Strava rate limiting is a clean pause, not an error.
 - Unknown grades are `-1` and score conservatively as V1.
 - Keep the "synced by sendtally" attribution line in activity descriptions (Strava attribution expectations).
+- Legacy `source = "board"` rows are read-only history: never re-scored, never re-posted, never deleted by anything except account deletion.
 
 ## Strava operational constraints
 
 - New Strava API apps are capped at one connected athlete until Strava approves a quota increase. Build order: the service runs single-athlete (Will) first; multi-user launch is gated on Strava approval, which requires a working branded app.
-- Handle `ErrRateLimited` per the invariant above; Strava limits are per-app, so backoff is global, not per-user.
+- Handle rate limiting per the invariant above; Strava limits are per-app, so backoff is global, not per-user.
 - The deauthorization webhook endpoint lives on the sync-service Worker.
 
 ## Design system
@@ -131,11 +139,13 @@ Design work (Claude-generated or otherwise) targets the token vocabulary; each p
 ## Migration order
 
 1. ~~Restructure commit: move the Go CLI to `tools/cli-go/`, scaffold pnpm + Turborepo at the root.~~ Done.
-2. `@sendtally/core`: port `grades`, `session`, `effort` with table-driven Vitest tests mirroring the Go tests.
-3. `@sendtally/sync-service`: Aurora + Strava clients, D1 schema, connect flows, cron + queue pipeline. Code complete with local D1 tests; the single-athlete end-to-end run awaits Cloudflare account setup (D1 databases, queues, secrets, Clerk keys).
-4. `apps/web`: marketing page, Clerk sign-in, connect flows, minimal dashboard.
-5. `apps/mobile`: Expo app - onboarding, connect flows, session list, push notifications.
-6. Apply for the Strava quota increase; open sign-ups on approval.
+2. ~~`@sendtally/core`: port `grades`, `session`, `effort` with table-driven Vitest tests mirroring the Go tests.~~ Done.
+3. ~~`@sendtally/sync-service`: Strava client, D1 schema, manual session CRUD.~~ Done.
+4. ~~`apps/web` and `apps/mobile`: sign-in, log-session form, session list and detail, trends, Strava connect.~~ Done.
+5. **Aurora removal (in progress):** delete the board connect flow, cron + queue pipeline, Aurora client, catalogue cron, and the `board_*` tables; drop board-sync copy from the apps and web. Keep `source = "board"` rows readable.
+6. Journal entries (free-text, attachable to a session).
+7. Project tracking (climbs worked across many sessions before sending).
+8. Apply for the Strava quota increase; open sign-ups on approval.
 
 ---
 
@@ -189,6 +199,6 @@ Never hand-roll `git worktree add`.
 
 ## Security notes
 
-- Board passwords transit the Worker only during connect; they are never logged or persisted.
-- Tokens (board + Strava refresh) are AES-GCM encrypted in D1; the key lives in a Worker secret.
+- No third-party passwords ever transit the Worker. Strava is connected via OAuth only.
+- Strava access/refresh tokens are AES-GCM encrypted in D1; the key lives in a Worker secret.
 - Account deletion must revoke the Strava token, delete all D1 rows for the user, and delete the Clerk user.
