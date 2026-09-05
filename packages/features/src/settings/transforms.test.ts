@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ConnectionStatus } from "@sendtally/api-client";
-import { settingsVM } from "./transforms";
+import { deleteConfirmationMatches, settingsVM } from "./transforms";
 
 function status(overrides: Partial<ConnectionStatus> = {}): ConnectionStatus {
   return {
@@ -36,5 +36,18 @@ describe("settingsVM", () => {
     expect(vm.stravaConnected).toBe(true);
     expect(vm.stravaActive).toBe(false);
     expect(vm.stravaStatusLabel).toBe("ATHLETE 42 · DEAD");
+  });
+});
+
+describe("deleteConfirmationMatches", () => {
+  it("accepts the confirmation word regardless of case or padding", () => {
+    expect(deleteConfirmationMatches("DELETE")).toBe(true);
+    expect(deleteConfirmationMatches("  delete ")).toBe(true);
+  });
+
+  it("rejects anything else", () => {
+    expect(deleteConfirmationMatches("")).toBe(false);
+    expect(deleteConfirmationMatches("del")).toBe(false);
+    expect(deleteConfirmationMatches("delete my account")).toBe(false);
   });
 });

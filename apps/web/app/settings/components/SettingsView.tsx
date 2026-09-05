@@ -1,10 +1,13 @@
 import React from "react";
 import { Link } from "react-router";
-import type { SettingsVM } from "@sendtally/features/settings";
+import type { DeleteAccountFeature, SettingsVM } from "@sendtally/features/settings";
 import { azureButton, bodyText, linkAction, monoMuted, sectionLabel } from "./styles";
+import { DeleteAccountSection } from "./DeleteAccountSection";
 
 export type SettingsViewProps = {
   vm: SettingsVM;
+  email: string;
+  deletion: DeleteAccountFeature;
 };
 
 function Section({ children }: { children: React.ReactNode }): React.ReactElement {
@@ -25,7 +28,7 @@ function Section({ children }: { children: React.ReactNode }): React.ReactElemen
   );
 }
 
-export function SettingsView({ vm }: SettingsViewProps): React.ReactElement {
+export function SettingsView({ vm, email, deletion }: SettingsViewProps): React.ReactElement {
   return (
     <div style={{ maxWidth: 640, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -80,6 +83,12 @@ export function SettingsView({ vm }: SettingsViewProps): React.ReactElement {
             Strava access has lapsed. Re-link it to start posting your sessions again.
           </p>
         )}
+      </Section>
+
+      <Section>
+        <span style={sectionLabel}>ACCOUNT</span>
+        <span style={monoMuted}>{email}</span>
+        <DeleteAccountSection deletion={deletion} />
       </Section>
     </div>
   );

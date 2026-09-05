@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createApp } from "./app";
-import { verifyClerkUser } from "./auth";
+import { deleteClerkUser, verifyClerkUser, verifyClerkWebhook } from "./auth";
 import type { Env, SyncJob } from "./bindings";
 import { claimCatalogueEnqueue, syncBoardCatalogue, type CatalogueOutcome } from "./catalogue";
 import { getPostHog } from "./lib/posthog";
@@ -32,7 +32,11 @@ const queuedJobSchema = z.union([
     .transform((j) => ({ kind: "user" as const, ...j })),
 ]);
 
-const app = createApp({ verifyUser: verifyClerkUser });
+const app = createApp({
+  verifyUser: verifyClerkUser,
+  deleteAuthUser: deleteClerkUser,
+  verifyAuthWebhook: verifyClerkWebhook,
+});
 
 export default {
   fetch: app.fetch,

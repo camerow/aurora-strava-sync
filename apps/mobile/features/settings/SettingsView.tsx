@@ -1,9 +1,10 @@
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { SettingsVM } from "@sendtally/features/settings";
+import type { DeleteAccountFeature, SettingsVM } from "@sendtally/features/settings";
 import { colors, fonts } from "@sendtally/design/tokens";
 import { Logo } from "../../components/Logo";
+import { DeleteAccountSection } from "./DeleteAccountSection";
 import {
   bodyText,
   monoMuted,
@@ -16,10 +17,16 @@ import {
 export type SettingsViewProps = {
   vm: SettingsVM;
   email: string;
+  deletion: DeleteAccountFeature;
   onSignOut: () => void;
 };
 
-export function SettingsView({ vm, email, onSignOut }: SettingsViewProps): React.ReactElement {
+export function SettingsView({
+  vm,
+  email,
+  deletion,
+  onSignOut,
+}: SettingsViewProps): React.ReactElement {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={["top"]}>
       <ScrollView
@@ -65,6 +72,10 @@ export function SettingsView({ vm, email, onSignOut }: SettingsViewProps): React
           <Pressable onPress={onSignOut} style={underlinePress}>
             <Text style={{ ...underlineLabel, fontSize: 12 }}>Sign out</Text>
           </Pressable>
+        </View>
+
+        <View style={sectionCard}>
+          <DeleteAccountSection deletion={deletion} />
         </View>
       </ScrollView>
     </SafeAreaView>

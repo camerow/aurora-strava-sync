@@ -108,6 +108,10 @@ export class SendtallyApi {
     });
   }
 
+  deleteAccount(): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>("/v1/account", { method: "DELETE" });
+  }
+
   setSyncSchedule(mode: SyncScheduleMode): Promise<{ mode: SyncScheduleMode }> {
     return this.request<{ mode: SyncScheduleMode }>("/v1/sync-schedule", {
       method: "POST",

@@ -563,6 +563,17 @@ export async function recordSyncResult(
     });
 }
 
+export async function deleteUserData(db: D1Database, userId: string): Promise<void> {
+  const d = drizzle(db);
+  await d.batch([
+    d.delete(sessions).where(eq(sessions.user_id, userId)),
+    d.delete(boardConnections).where(eq(boardConnections.user_id, userId)),
+    d.delete(stravaConnections).where(eq(stravaConnections.user_id, userId)),
+    d.delete(syncState).where(eq(syncState.user_id, userId)),
+    d.delete(users).where(eq(users.id, userId)),
+  ]);
+}
+
 export async function usersDueForSync(db: D1Database, olderThanMs: number): Promise<string[]> {
   const cutoff = new Date(Date.now() - olderThanMs).toISOString();
   const rows = await drizzle(db)

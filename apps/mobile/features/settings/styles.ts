@@ -79,3 +79,18 @@ export const chipButtonLabel: TextStyle = {
   fontSize: 13,
   color: colors.white,
 };
+
+export const dangerButton: ViewStyle = {
+  backgroundColor: colors.watermelonInk,
+  borderRadius: radius.control,
+  paddingVertical: 14,
+  minHeight: 48,
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+export const dangerButtonLabel: TextStyle = {
+  fontFamily: fonts.sansSemiBold,
+  fontSize: 15,
+  color: colors.white,
+};

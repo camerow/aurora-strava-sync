@@ -1,12 +1,14 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../src/app";
+import { createApp, type AppDeps } from "../src/app";
 import type { Env } from "../src/bindings";
 import { decryptSecret, encryptSecret } from "../src/lib/crypto";
 import { wallClockNow } from "../src/lib/time";
 import { jsonResponse, makeFakeFetch } from "./fakes";
 
-function testApp(fetchImpl?: typeof fetch) {
+type TestOverrides = Partial<Pick<AppDeps, "deleteAuthUser" | "verifyAuthWebhook">>;
+
+function testApp(fetchImpl?: typeof fetch, overrides: TestOverrides = {}) {
   return createApp({
     verifyUser: async (req) => {
       const userId = req.headers.get("x-test-user");
@@ -14,6 +16,11 @@ function testApp(fetchImpl?: typeof fetch) {
       const features = (req.headers.get("x-test-features") ?? "").split(",");
       return { userId, hasFeature: (feature) => features.includes(feature) };
     },
+    deleteAuthUser: async () => {},
+    verifyAuthWebhook: async () => {
+      throw new Error("unsigned webhook");
+    },
+    ...overrides,
     ...(fetchImpl === undefined ? {} : { fetchImpl }),
   });
 }
@@ -727,6 +734,145 @@ describe("app", () => {
     expect(row?.n).toBe(0);
   });
 
+  it("deletes the account: revokes Strava, clears D1 rows, removes the Clerk user", async () => {
+    const userId = "user_delete_account";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO board_connections (user_id, board, board_user_id, token_ciphertext, status, sync_since, connected_at)
+       VALUES (?, 'tension', 7, 'tok', 'active', NULL, '')`
+    )
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
+       VALUES (?, 999, ?, ?, ?, 'active', '')`
+    )
+      .bind(
+        userId,
+        await encryptSecret("access-tok", env.TOKEN_KEY),
+        await encryptSecret("refresh-tok", env.TOKEN_KEY),
+        Math.floor(Date.now() / 1000) + 3600
+      )
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO sync_state (user_id, last_synced_at, last_error) VALUES (?, '', NULL)`
+    )
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO sessions (user_id, fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json)
+       VALUES (?, 'fp_x', 'tension', '2025-01-01T00:00:00Z', '2025-01-01T01:00:00Z', 3, 5, 6, 't', 's', '[]')`
+    )
+      .bind(userId)
+      .run();
+
+    const { fetchImpl, calls } = makeFakeFetch([
+      {
+        match: (url, method) => url.endsWith("/oauth/deauthorize") && method === "POST",
+        respond: () => jsonResponse(200, { access_token: "access-tok" }),
+      },
+    ]);
+    const deleted: string[] = [];
+
+    const res = await testApp(fetchImpl, {
+      deleteAuthUser: async (id) => void deleted.push(id),
+    }).request("/v1/account", { method: "DELETE", headers: { "x-test-user": userId } }, env);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: true });
+    expect(deleted).toEqual([userId]);
+
+    const deauth = calls.find((c) => c.url.endsWith("/oauth/deauthorize"));
+    expect(deauth?.headers["authorization"]).toBe("Bearer access-tok");
+
+    for (const table of [
+      "users",
+      "board_connections",
+      "strava_connections",
+      "sync_state",
+      "sessions",
+    ]) {
+      const column = table === "users" ? "id" : "user_id";
+      const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} = ?`)
+        .bind(userId)
+        .first<{ n: number }>();
+      expect(`${table}:${row?.n}`).toBe(`${table}:0`);
+    }
+  });
+
+  it("deletes the account of a user who never connected Strava", async () => {
+    const userId = "user_delete_no_strava";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+
+    const res = await testApp().request(
+      "/v1/account",
+      { method: "DELETE", headers: { "x-test-user": userId } },
+      env
+    );
+    expect(res.status).toBe(200);
+
+    const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE id = ?`)
+      .bind(userId)
+      .first<{ n: number }>();
+    expect(row?.n).toBe(0);
+  });
+
+  it("still clears D1 rows when Strava rejects the deauthorization", async () => {
+    const userId = "user_delete_strava_fails";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
+       VALUES (?, 1001, ?, ?, ?, 'active', '')`
+    )
+      .bind(
+        userId,
+        await encryptSecret("access-tok", env.TOKEN_KEY),
+        await encryptSecret("refresh-tok", env.TOKEN_KEY),
+        Math.floor(Date.now() / 1000) + 3600
+      )
+      .run();
+
+    const { fetchImpl } = makeFakeFetch([
+      {
+        match: (url) => url.endsWith("/oauth/deauthorize"),
+        respond: () => jsonResponse(401, {}),
+      },
+    ]);
+
+    const res = await testApp(fetchImpl).request(
+      "/v1/account",
+      { method: "DELETE", headers: { "x-test-user": userId } },
+      env
+    );
+    expect(res.status).toBe(200);
+
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM strava_connections WHERE user_id = ?`
+    )
+      .bind(userId)
+      .first<{ n: number }>();
+    expect(row?.n).toBe(0);
+  });
+
+  it("reports 502 when the auth user cannot be removed", async () => {
+    const userId = "user_delete_clerk_fails";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+
+    const res = await testApp(undefined, {
+      deleteAuthUser: async () => {
+        throw new Error("clerk down");
+      },
+    }).request("/v1/account", { method: "DELETE", headers: { "x-test-user": userId } }, env);
+    expect(res.status).toBe(502);
+  });
+
   it("starts the strava connect flow for any signed-in user", async () => {
     const res = await testApp().request(
       "/v1/connect/strava/start",
@@ -736,5 +882,92 @@ describe("app", () => {
     expect(res.status).toBe(200);
     const { url } = (await res.json()) as { url: string };
     expect(url).toContain("https://www.strava.com/oauth/authorize");
+  });
+
+  it("purges the account when Clerk reports a user.deleted webhook", async () => {
+    const userId = "user_webhook_deleted";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO strava_connections (user_id, athlete_id, access_token_ciphertext, refresh_token_ciphertext, expires_at, status, connected_at)
+       VALUES (?, 2002, ?, ?, ?, 'active', '')`
+    )
+      .bind(
+        userId,
+        await encryptSecret("access-tok", env.TOKEN_KEY),
+        await encryptSecret("refresh-tok", env.TOKEN_KEY),
+        Math.floor(Date.now() / 1000) + 3600
+      )
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO sessions (user_id, fingerprint, board, start_at, end_at, climb_count, top_grade, rpe, title, summary, climbs_json)
+       VALUES (?, 'fp_hook', 'tension', '2025-01-01T00:00:00Z', '2025-01-01T01:00:00Z', 2, 4, 5, 't', 's', '[]')`
+    )
+      .bind(userId)
+      .run();
+
+    const { fetchImpl, calls } = makeFakeFetch([
+      {
+        match: (url, method) => url.endsWith("/oauth/deauthorize") && method === "POST",
+        respond: () => jsonResponse(200, {}),
+      },
+    ]);
+
+    const res = await testApp(fetchImpl, {
+      verifyAuthWebhook: async () => ({ type: "user.deleted", userId }),
+    }).request("/webhooks/clerk", { method: "POST", body: "{}" }, env);
+    expect(res.status).toBe(200);
+
+    expect(calls.some((c) => c.url.endsWith("/oauth/deauthorize"))).toBe(true);
+    for (const table of ["users", "strava_connections", "sessions"]) {
+      const column = table === "users" ? "id" : "user_id";
+      const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} = ?`)
+        .bind(userId)
+        .first<{ n: number }>();
+      expect(`${table}:${row?.n}`).toBe(`${table}:0`);
+    }
+  });
+
+  it("rejects a Clerk webhook that fails signature verification", async () => {
+    const res = await testApp().request("/webhooks/clerk", { method: "POST", body: "{}" }, env);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad signature" });
+  });
+
+  it("ignores Clerk webhook events other than user.deleted", async () => {
+    const userId = "user_webhook_ignored";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+
+    const res = await testApp(undefined, {
+      verifyAuthWebhook: async () => ({ type: "user.updated", userId }),
+    }).request("/webhooks/clerk", { method: "POST", body: "{}" }, env);
+    expect(res.status).toBe(200);
+
+    const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE id = ?`)
+      .bind(userId)
+      .first<{ n: number }>();
+    expect(row?.n).toBe(1);
+  });
+
+  it("is idempotent when the webhook arrives after our own deletion", async () => {
+    const userId = "user_webhook_twice";
+    await env.DB.prepare(`INSERT INTO users (id, timezone, created_at) VALUES (?, 'UTC', '')`)
+      .bind(userId)
+      .run();
+
+    const first = await testApp().request(
+      "/v1/account",
+      { method: "DELETE", headers: { "x-test-user": userId } },
+      env
+    );
+    expect(first.status).toBe(200);
+
+    const second = await testApp(undefined, {
+      verifyAuthWebhook: async () => ({ type: "user.deleted", userId }),
+    }).request("/webhooks/clerk", { method: "POST", body: "{}" }, env);
+    expect(second.status).toBe(200);
   });
 });

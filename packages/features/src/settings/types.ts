@@ -4,3 +4,5 @@ export type SettingsVM = {
   stravaStatusLabel: string;
   headerBadge: string;
 };
+
+export type DeleteAccountStatus = "idle" | "confirming" | "deleting" | "deleted";
