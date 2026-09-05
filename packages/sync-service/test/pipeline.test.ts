@@ -231,13 +231,14 @@ describe("syncOneUser", () => {
     expect(first).toEqual({ status: "synced", posted: 1 });
 
     const rows = await env.DB.prepare(
-      `SELECT fingerprint, climb_count, top_grade, rpe, title, summary, strava_activity_id FROM sessions WHERE user_id = ?`
+      `SELECT fingerprint, climb_count, top_grade, top_send_grade, rpe, title, summary, strava_activity_id FROM sessions WHERE user_id = ?`
     )
       .bind(userId)
       .all<{
         fingerprint: string;
         climb_count: number;
         top_grade: number;
+        top_send_grade: number;
         rpe: number;
         title: string;
         summary: string;
@@ -247,6 +248,7 @@ describe("syncOneUser", () => {
     const session = rows.results[0]!;
     expect(session.climb_count).toBe(3);
     expect(session.top_grade).toBe(8);
+    expect(session.top_send_grade).toBe(6);
     expect(session.strava_activity_id).toBe(1001);
     expect(session.title).toContain("top V8");
     expect(session.summary).toContain("✓ V4 Jug Life");

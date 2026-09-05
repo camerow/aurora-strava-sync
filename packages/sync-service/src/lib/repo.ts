@@ -30,6 +30,7 @@ export type SessionRow = {
   end_at: string;
   climb_count: number;
   top_grade: number;
+  top_send_grade: number;
   rpe: number;
   title: string;
   strava_activity_id: number | null;
@@ -46,6 +47,7 @@ const sessionListColumns = {
   end_at: sessions.end_at,
   climb_count: sessions.climb_count,
   top_grade: sessions.top_grade,
+  top_send_grade: sessions.top_send_grade,
   rpe: sessions.rpe,
   title: sessions.title,
   strava_activity_id: sessions.strava_activity_id,
@@ -271,6 +273,7 @@ export type ScoredSessionInput = {
   end_at: string;
   climb_count: number;
   top_grade: number;
+  top_send_grade: number;
   rpe: number;
   title: string;
   summary: string;
@@ -293,6 +296,7 @@ export async function upsertScoredSession(
         end_at: s.end_at,
         climb_count: s.climb_count,
         top_grade: s.top_grade,
+        top_send_grade: s.top_send_grade,
         rpe: s.rpe,
         title: s.title,
         summary: s.summary,
@@ -309,6 +313,7 @@ export type ManualSessionInput = {
   end_at: string;
   climb_count: number;
   top_grade: number;
+  top_send_grade: number;
   rpe: number;
   title: string;
   summary: string;

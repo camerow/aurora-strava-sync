@@ -19,6 +19,7 @@ function session(
     end_at: startIso,
     climb_count: climbs.length,
     top_grade: Math.max(...climbs.map((c) => c.vGrade)),
+    top_send_grade: Math.max(...climbs.filter((c) => c.kind === "send").map((c) => c.vGrade), -1),
     rpe: 6,
     title: "",
     strava_activity_id: null,
@@ -84,6 +85,16 @@ describe("trendsVM", () => {
   it("excludes sessions outside the range from the pyramid", () => {
     const vm = trendsVM(sessions, "1m", NOW);
     expect(vm.tiles.find((t) => t.metric === "pyramid")?.value).toBe("5 sends");
+  });
+
+  it("labels the y axis top-down and blanks it with no data", () => {
+    const vm = trendsVM(sessions, "all", NOW);
+    expect(vm.details.hardest.yTicks[2]).toBe("V0");
+    expect(vm.details.hardest.yTicks[0]).toBe(
+      `V${vm.tiles.find((t) => t.metric === "hardest")!.value.slice(1)}`
+    );
+    expect(vm.details.flash.yTicks[2]).toBe("0%");
+    expect(trendsVM([], "all", NOW).details.volume.yTicks).toEqual(["", "", ""]);
   });
 
   it("handles an empty logbook", () => {

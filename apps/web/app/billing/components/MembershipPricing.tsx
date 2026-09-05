@@ -8,7 +8,7 @@ export type MembershipPricingProps = {
 
 const appearance = {
   variables: {
-    colorPrimary: colors.watermelonInk,
+    colorPrimary: colors.azureInk,
     colorBackground: colors.white,
     colorForeground: colors.gunmetal,
     borderRadius: `${radius.control}px`,

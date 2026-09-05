@@ -75,14 +75,14 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 
 - Wrangler environments `staging` and `production` for `sync-service` and `web`: separate D1 databases, separate Clerk instances, secrets via `wrangler secret`.
 - **The Cloudflare account is pinned as `account_id` in both `wrangler.jsonc` files** (`7b398a51...`, the account that owns the `sendtally.com` zone). The login has access to a second, unrelated account, and without the pin wrangler can resolve to it - deploys and `secret bulk` then silently land on a shadow Worker in an account with no zone and no D1, while `tail` watches nothing and the live site never changes. Never remove the pin.
-- `staging` is the integration branch, `main` is production. All work branches off `staging` and PRs target `staging`. `main` is updated only via the `staging -> main` promotion PR, which triggers the production deploy and D1 migrations.
+- `main` is the only long-lived branch and is production. All work branches off `main` and PRs target `main`; merging a PR triggers the production deploy and D1 migrations. The `staging` environment still exists for manual deploys, but there is no `staging` branch in the flow.
 - D1 migrations: `wrangler d1 migrations apply`, additive and forward-only. Never delete or rewrite prior migrations.
 - Schema source of truth is Drizzle (`packages/sync-service/src/db/schema.ts`).
   Change the schema there, then run `pnpm --filter @sendtally/sync-service db:generate` to emit the next migration into `migrations/` (drizzle-kit diffs against `migrations/meta/`; `0005_drizzle_baseline.sql` anchors the pre-Drizzle history).
   Wrangler remains the applier - CI applies migrations on every deploy, and PR CI validates them against a fresh local D1.
   Never hand-write migration SQL for schema changes; never edit `migrations/meta/` by hand.
 - Database access goes through the typed Drizzle queries in `packages/sync-service/src/lib/repo.ts` - no raw SQL strings in Worker code.
-- CI: `.github/workflows/deploy.yml` runs checks (types, tests, format, Go) then deploys both Workers - push to `staging` deploys the staging env, push to `main` deploys production. Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets. Each deploy is gated on a secret preflight and followed by a smoke check against the live custom domain, so a green run means the deployed code actually answers.
+- CI: `.github/workflows/deploy.yml` runs checks (types, tests, format, Go) then deploys both Workers - push to `main` deploys production (a push to a `staging` branch, if one is ever created, deploys the staging env). Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets. Each deploy is gated on a secret preflight and followed by a smoke check against the live custom domain, so a green run means the deployed code actually answers.
 
 ### Secrets
 
@@ -176,7 +176,7 @@ Avoid comments in code; make code short, composable, and obviously named.
 ## Git
 
 - Conventional Commits: `feat|fix|refactor|style|test|chore|docs|perf(scope): description`.
-- Branch naming: `feat|chore|bug|refactor/<feature-name>` off `staging`. No agent names or AI metadata in branch names.
+- Branch naming: `feat|chore|bug|refactor/<feature-name>` off `main`. No agent names or AI metadata in branch names.
 - No AI co-author trailers in commit messages.
 - PR descriptions: short clear paragraphs, bullet lists for completed tasks, `Closes #123` where an issue exists.
 

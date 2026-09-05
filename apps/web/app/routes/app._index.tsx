@@ -1,24 +1,27 @@
 import React from "react";
 import type { LoaderFunctionArgs } from "react-router";
-import { Link, useLoaderData } from "react-router";
+import { Link, useLoaderData, useSearchParams } from "react-router";
 import type { ConnectionStatus, SessionRow } from "@sendtally/api-client";
-import { sessionBadge, sessionTitle } from "@sendtally/features/sessions";
-import { STRAVA_SYNC_FEATURE } from "../billing/features";
+import {
+  resolveSessionMonth,
+  sessionBadge,
+  sessionMonths,
+  sessionTitle,
+} from "@sendtally/features/sessions";
 import { requireApi } from "../lib/api.server";
-import { hasFeature } from "../lib/billing.server";
+import { MonthPicker } from "../sessions/components/MonthPicker";
 import { SessionRowItem } from "../sessions/components/SessionRowItem";
 
 type LoaderData = {
   status: ConnectionStatus;
   sessions: SessionRow[];
-  canSyncStrava: boolean;
 };
 
 export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
   const api = await requireApi(args);
   const status = await api.status();
   const { sessions } = await api.sessions();
-  return { status, sessions, canSyncStrava: await hasFeature(args, STRAVA_SYNC_FEATURE) };
+  return { status, sessions };
 }
 
 const bannerButton: React.CSSProperties = {
@@ -35,8 +38,11 @@ const bannerButton: React.CSSProperties = {
 };
 
 export default function Sessions(): React.ReactElement {
-  const { status, sessions, canSyncStrava } = useLoaderData<typeof loader>();
+  const { status, sessions } = useLoaderData<typeof loader>();
+  const [searchParams] = useSearchParams();
   const stravaConnected = status.strava?.status === "active";
+  const months = React.useMemo(() => sessionMonths(sessions), [sessions]);
+  const selected = resolveSessionMonth(months, searchParams.get("month"));
 
   return (
     <div>
@@ -71,7 +77,7 @@ export default function Sessions(): React.ReactElement {
             fontWeight: 600,
             fontSize: 13,
             color: "var(--bs-white)",
-            background: "var(--bs-watermelon-ink)",
+            background: "var(--bs-azure-ink)",
             borderRadius: "var(--radius-control)",
             padding: "9px 16px",
             textDecoration: "none",
@@ -94,28 +100,31 @@ export default function Sessions(): React.ReactElement {
           }}
         >
           <span style={{ flex: 1, fontSize: 14, lineHeight: 1.5, color: "var(--text-on-light)" }}>
-            {canSyncStrava
-              ? "Your logbook lives here either way. Connect Strava and your sessions can post to your feed as Rock Climbing activities."
-              : "Your logbook lives here either way. Members get trend screens for the whole history, and Strava sync so board training counts toward your training load."}
+            Your logbook lives here either way. Connect Strava and your sessions can post to your
+            feed as Rock Climbing activities.
           </span>
-          <Link
-            to={canSyncStrava ? "/app/setup" : "/app/membership"}
-            style={{ ...bannerButton, textDecoration: "none" }}
-          >
-            {canSyncStrava ? "Connect Strava" : "See membership"}
+          <Link to="/app/setup" style={{ ...bannerButton, textDecoration: "none" }}>
+            Connect Strava
           </Link>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22 }}>
-        {sessions.map((s) => (
-          <SessionRowItem
-            key={s.fingerprint}
-            session={s}
-            title={sessionTitle(s)}
-            badge={sessionBadge(s)}
-          />
-        ))}
-      </div>
+      {selected !== null && (
+        <>
+          <div style={{ marginTop: 26 }}>
+            <MonthPicker months={months} selected={selected} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 18 }}>
+            {selected.sessions.map((s) => (
+              <SessionRowItem
+                key={s.fingerprint}
+                session={s}
+                title={sessionTitle(s)}
+                badge={sessionBadge(s)}
+              />
+            ))}
+          </div>
+        </>
+      )}
       {sessions.length === 0 && (
         <div
           style={{

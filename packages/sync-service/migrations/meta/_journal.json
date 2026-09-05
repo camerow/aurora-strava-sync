@@ -15,6 +15,13 @@
       "when": 1787795395228,
       "tag": "0006_material_darkhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788564225890,
+      "tag": "0007_lowly_sabretooth",
+      "breakpoints": true
     }
   ]
 }

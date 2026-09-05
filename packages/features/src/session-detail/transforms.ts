@@ -118,7 +118,7 @@ export function sessionDetailVM(session: SessionDetail): SessionDetailVM {
     { label: "AVG GRADE", value: avg === null ? "-" : `V${avg.toFixed(1)}`, accent: false },
     { label: "FLASHES", value: String(flashes.length), accent: false },
     { label: "RPE", value: `${session.rpe}/10`, accent: false },
-    { label: "TOP", value: gradeLabel(top >= 0 ? top : session.top_grade), accent: true },
+    { label: "TOP", value: gradeLabel(top >= 0 ? top : session.top_send_grade), accent: true },
   ];
 
   const grades = session.climbs.filter((c) => c.vGrade >= 0).map((c) => c.vGrade);

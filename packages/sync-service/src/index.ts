@@ -3,6 +3,7 @@ import { createApp } from "./app";
 import { deleteClerkUser, verifyClerkUser, verifyClerkWebhook } from "./auth";
 import type { Env, SyncJob } from "./bindings";
 import { claimCatalogueEnqueue, syncBoardCatalogue, type CatalogueOutcome } from "./catalogue";
+import { getPostHog } from "./lib/posthog";
 import {
   autoSyncBoardConnectionsForBoard,
   boardsWithActiveConnections,
@@ -122,7 +123,13 @@ export default {
 
       let outcome;
       try {
-        outcome = await syncOneUser(env, job.userId, undefined, job.board);
+        const posthog = getPostHog(env);
+        outcome =
+          posthog === null
+            ? await syncOneUser(env, job.userId, undefined, job.board)
+            : await posthog.withContext({ distinctId: job.userId }, () =>
+                syncOneUser(env, job.userId, undefined, job.board)
+              );
       } catch (err) {
         await setBoardCursor(
           env.DB,

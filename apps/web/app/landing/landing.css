@@ -296,6 +296,14 @@
   color: var(--text-on-light);
 }
 
+.l-member-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-on-light-soft);
+}
+
 .l-footer {
   border-top: 1px solid var(--line-on-light);
   padding: 24px clamp(20px, 5vw, 56px);

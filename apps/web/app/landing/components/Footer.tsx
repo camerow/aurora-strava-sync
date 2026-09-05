@@ -2,7 +2,7 @@ import React from "react";
 
 const LINKS: Array<[string, string]> = [
   ["Sign in", "/app"],
-  ["Donate", "https://github.com/sponsors/camerow"],
+  ["Membership", "https://github.com/sponsors/camerow"],
   ["Contact", "mailto:hello@sendtally.com"],
 ];
 

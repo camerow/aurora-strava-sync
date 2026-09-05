@@ -7,7 +7,7 @@ export function Hero(): React.ReactElement {
     <div className="l-hero">
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 26 }}>
         <Label on="accent" style={{ letterSpacing: "0.1em" }}>
-          LOG · SCORE · TREND · STRAVA
+          FREE TO LOG · MEMBER TRENDS
         </Label>
         <h1 className="l-hero-title">See what six months of climbing adds up to.</h1>
         <p
@@ -20,14 +20,14 @@ export function Hero(): React.ReactElement {
             textWrap: "pretty",
           }}
         >
-          A session takes a minute to log - grades, sends, attempts - and sendtally turns the
-          history into volume, grade pyramids, flash rate and progression, session by session, week
-          by week. Every session gets an effort score against your own last eight weeks. It posts to
-          Strava too.
+          A session takes a minute to log - grades, sends, attempts - and every one gets an effort
+          score against your own last eight weeks and posts to Strava. That part is free. Membership
+          turns the history into volume, grade pyramids, flash rate, hardest send and average grade,
+          week by week.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
           <div>
-            <Button variant="primary" href="/app">
+            <Button variant="gold" href="/app">
               Create your account →
             </Button>
           </div>
@@ -38,7 +38,7 @@ export function Hero(): React.ReactElement {
               color: "rgba(64,63,76,0.58)",
             }}
           >
-            Free · one-time code sign-in · log your first session in a minute
+            Free to log · one-time code sign-in · Strava sync included, never paywalled
           </span>
         </div>
       </div>

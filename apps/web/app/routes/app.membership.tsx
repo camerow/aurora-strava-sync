@@ -2,7 +2,7 @@ import React from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { Badge, Label } from "@sendtally/design";
-import { INSIGHTS_FEATURE, MEMBER_BENEFITS, STRAVA_SYNC_FEATURE } from "../billing/features";
+import { INSIGHTS_FEATURE, MEMBER_BENEFITS } from "../billing/features";
 import { MembershipPricing } from "../billing/components/MembershipPricing";
 import { hasFeature } from "../lib/billing.server";
 import { requireApi } from "../lib/api.server";
@@ -11,11 +11,7 @@ type LoaderData = { isMember: boolean };
 
 export async function loader(args: LoaderFunctionArgs): Promise<LoaderData> {
   await requireApi(args);
-  const [insights, stravaSync] = await Promise.all([
-    hasFeature(args, INSIGHTS_FEATURE),
-    hasFeature(args, STRAVA_SYNC_FEATURE),
-  ]);
-  return { isMember: insights || stravaSync };
+  return { isMember: await hasFeature(args, INSIGHTS_FEATURE) };
 }
 
 export default function MembershipRoute(): React.ReactElement {
@@ -48,8 +44,8 @@ export default function MembershipRoute(): React.ReactElement {
             textWrap: "pretty",
           }}
         >
-          Logging sessions is free and always will be. Membership is what turns the log into a
-          training history, and it is what pays for the server.
+          Logging sessions and posting them to Strava are free and always will be. Membership is
+          what turns the log into a training history, and it is what pays for the server.
         </p>
       </div>
 

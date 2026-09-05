@@ -338,7 +338,6 @@ describe("app", () => {
         method: "POST",
         headers: {
           "x-test-user": "user_posting",
-          "x-test-features": "strava-sync",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ board: "kilter", mode: "all" }),
@@ -504,6 +503,7 @@ describe("app", () => {
       end_at: string;
       climb_count: number;
       top_grade: number;
+      top_send_grade: number;
       rpe: number;
       title: string;
       inProgress: boolean;
@@ -533,6 +533,7 @@ describe("app", () => {
     expect(session.end_at).toBe("2026-08-20T20:00:00.000Z");
     expect(session.climb_count).toBe(3);
     expect(session.top_grade).toBe(6);
+    expect(session.top_send_grade).toBe(5);
     expect(session.rpe).toBeGreaterThanOrEqual(1);
     expect(session.rpe).toBeLessThanOrEqual(10);
     expect(session.inProgress).toBe(false);
@@ -872,25 +873,14 @@ describe("app", () => {
     expect(res.status).toBe(502);
   });
 
-  it("gates the strava connect start on the strava-sync feature", async () => {
-    const locked = await testApp().request(
+  it("starts the strava connect flow for any signed-in user", async () => {
+    const res = await testApp().request(
       "/v1/connect/strava/start",
       { headers: { "x-test-user": "user_free" } },
       env
     );
-    expect(locked.status).toBe(402);
-    expect(await locked.json()).toEqual({
-      error: "membership required",
-      feature: "strava-sync",
-    });
-
-    const member = await testApp().request(
-      "/v1/connect/strava/start",
-      { headers: { "x-test-user": "user_member", "x-test-features": "strava-sync" } },
-      env
-    );
-    expect(member.status).toBe(200);
-    const { url } = (await member.json()) as { url: string };
+    expect(res.status).toBe(200);
+    const { url } = (await res.json()) as { url: string };
     expect(url).toContain("https://www.strava.com/oauth/authorize");
   });
 
