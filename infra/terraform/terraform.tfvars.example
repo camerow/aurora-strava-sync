@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (gitignored). Fill dns_records from the export of the
+# old zone (see README "Step 2"). Worker hostnames (sendtally.com, api.sendtally.com,
+# staging.*, api-staging.*) are NOT listed here: wrangler creates those as Worker
+# custom domains on deploy.
+dns_records = {
+  clerk_frontend = { name = "clerk", type = "CNAME", content = "frontend-api.clerk.services", comment = "Clerk production instance" }
+  clerk_accounts = { name = "accounts", type = "CNAME", content = "accounts.clerk.services", comment = "Clerk account portal" }
+  # clerk_mail     = { name = "clkmail", type = "CNAME", content = "mail.<id>.clerk.services" }
+  # clerk_dkim1    = { name = "clk._domainkey", type = "CNAME", content = "dkim1.<id>.clerk.services" }
+  # clerk_dkim2    = { name = "clk2._domainkey", type = "CNAME", content = "dkim2.<id>.clerk.services" }
+}
