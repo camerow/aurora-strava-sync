@@ -27,3 +27,12 @@ jobs:
       - name: Validate D1 migrations apply on a fresh database
         run: npx wrangler d1 migrations apply DB --local
         working-directory: packages/sync-service
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+      - name: Terraform fmt and validate
+        working-directory: infra/terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate

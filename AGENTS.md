@@ -53,6 +53,9 @@ sendtally/
 │   ├── api-client/      typed hono/client wrapper consumed by mobile and web
 │   ├── design/          design tokens (CSS variables) + React component library
 │   └── ui-native/       NativeWind component kit for mobile
+├── infra/
+│   ├── terraform/       Cloudflare account resources (zone, DNS, D1, Queues)
+│   └── scripts/         operator scripts (secret push, D1 copy)
 └── tools/
     └── cli-go/          the original Go CLI (go.mod lives here)
 ```
@@ -74,7 +77,8 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 ### Environments and deploys
 
 - Wrangler environments `staging` and `production` for `sync-service` and `web`: separate D1 databases, separate Clerk instances, secrets via `wrangler secret`.
-- **The Cloudflare account is pinned as `account_id` in both `wrangler.jsonc` files** (`7b398a51...`, the account that owns the `sendtally.com` zone). The login has access to a second, unrelated account, and without the pin wrangler can resolve to it - deploys and `secret bulk` then silently land on a shadow Worker in an account with no zone and no D1, while `tail` watches nothing and the live site never changes. Never remove the pin.
+- **The Cloudflare account is pinned as `account_id` in both `wrangler.jsonc` files** (`f3514650...`, the "Chalk and Circuits" account that owns the `sendtally.com` zone and everything else). The login also sees the older personal account (`7b398a51...`) that sendtally was migrated out of in September 2026; without the pin wrangler can resolve to it - deploys and `secret bulk` then silently land on a shadow Worker in an account with no zone and no D1, while `tail` watches nothing and the live site never changes. Never remove the pin.
+- **Account-level resources are Terraform-managed** in `infra/terraform/` (zone, zone settings, non-Worker DNS records, D1 databases, Queues). Wrangler owns Worker scripts, bindings, crons, queue consumers, secrets, and Worker custom domains. Create a D1 or queue in Terraform, then pin its id in `wrangler.jsonc`; never create them in the dashboard. State is local (single operator); the API token comes from 1Password via `TF_VAR_cloudflare_api_token`. Migration runbook: `docs/cloudflare-account-migration.md`.
 - `main` is the only long-lived branch and is production. All work branches off `main` and PRs target `main`; merging a PR triggers the production deploy and D1 migrations. The `staging` environment still exists for manual deploys, but there is no `staging` branch in the flow.
 - D1 migrations: `wrangler d1 migrations apply`, additive and forward-only. Never delete or rewrite prior migrations.
 - Schema source of truth is Drizzle (`packages/sync-service/src/db/schema.ts`).
@@ -87,8 +91,8 @@ The product was briefly named boardsync; that name was dropped because `boardsyn
 ### Secrets
 
 - Source of truth is the **Doppler project `sendtally`** (configs `stg` and `prd`): `TOKEN_KEY`, `CLERK_SECRET_KEY`, `VITE_CLERK_PUBLISHABLE_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`.
-- Push to Workers with `doppler secrets download --no-file --format json --project sendtally --config <stg|prd> | ... | wrangler secret bulk --env <staging|production>`. Never paste secret values into files, commits, or chat.
-- **Both Workers need secrets, so run that push twice.** From `packages/sync-service`: `TOKEN_KEY`, `CLERK_SECRET_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`. From `apps/web`: `CLERK_SECRET_KEY` - `apps/web` renders every route through `clerkMiddleware()`, so without it the Worker throws on every request and the whole site 500s while the deploy still reports success.
+- Push to Workers with `infra/scripts/push-secrets.sh <production|staging>`, which runs `doppler secrets download ... | wrangler secret bulk` for both Workers. Never paste secret values into files, commits, or chat.
+- **Both Workers need secrets.** For `packages/sync-service`: `TOKEN_KEY`, `CLERK_SECRET_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`. For `apps/web`: `CLERK_SECRET_KEY` - `apps/web` renders every route through `clerkMiddleware()`, so without it the Worker throws on every request and the whole site 500s while the deploy still reports success.
 - Secrets live on the Worker, not in the config, so **a Worker deleted and recreated in the dashboard comes back with none of them**. `deploy.yml` runs `.github/scripts/require-secrets.sh` before each deploy to fail loudly instead of shipping a Worker that 500s.
 - The Strava credentials originate from the maker's Strava API app; Clerk keys from the Clerk dashboard (kept in 1Password, vault "Send Tally").
 

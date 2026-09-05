@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sendtally-sync-service",
-  "account_id": "7b398a51337874fb6b7ceb188e5961e9",
+  "account_id": "f3514650e9f74f7fe7db71fdd6577a8f",
   "main": "src/index.ts",
   "compatibility_date": "2025-10-11",
   "observability": { "enabled": true },
@@ -28,7 +28,7 @@
         {
           "binding": "DB",
           "database_name": "sendtally-staging",
-          "database_id": "f51cbd26-d1ac-4455-9fe1-f0c273bec4c2",
+          "database_id": "3b3763e2-2c97-4729-9dee-b8b4242785c8",
           "migrations_dir": "migrations",
         },
       ],
@@ -44,7 +44,7 @@
         {
           "binding": "DB",
           "database_name": "sendtally-production",
-          "database_id": "3530133c-2f98-4054-9a95-9ae13d661a66",
+          "database_id": "974644dc-05b4-4e20-bd0e-f7d1b7c609ea",
           "migrations_dir": "migrations",
         },
       ],
